@@ -1,0 +1,171 @@
+# Build workflow
+
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  BUILD_NODE_VERSION: 24.19
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup NodeJS
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.BUILD_NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+      - name: Run check
+        run: npm run check
+      - name: Run linter
+        run: npm run lint
+
+  test:
+    name: Tests
+    needs:
+      - lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup NodeJS
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.BUILD_NODE_VERSION }}
+          cache: npm
+
+      - name: Playwright browser cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      # Cache .cache so image transforms don't take forever
+      # Need to be after npm ci since that clears node_modules
+      - name: Build cache
+        id: build-cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules/.cache
+          key: ${{ runner.os }}-integration-build-cache
+
+      # Pre-build so transforms are cached
+      - name: Build server
+        run: npm run build
+
+      - name: Run unit tests
+        run: npm run test:unit
+      - name: Run E2E tests
+        run: npm run test:e2e
+
+  build:
+    name: Build
+    needs:
+      - test
+    runs-on: ubuntu-latest
+    environment: publish
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    env:
+      IMAGE_FULL_NAME: ${{ vars.REGISTRY_HOST || 'ghcr.io' }}/${{ vars.IMAGE_NAME || github.event.repository.name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.IMAGE_FULL_NAME }}
+          tags: |
+            # Website always deploys latest so the build number is all that matters for precedence
+            # Keep a v1 prefix for future use just in case
+            # Add .0 patch so manual patches are possible
+            type=raw,value=1.${{ github.run_number }}.0
+            # Mark latest build
+            type=edge,branch=main
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.REGISTRY_HOST || 'ghcr.io' }}
+          username: ${{ secrets.REGISTRY_USER || github.actor }}
+          password: ${{ secrets.REGISTRY_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        id: image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          push: true
+          sbom: false # Doesn't include SBOM cataloger https://github.com/docker/buildkit-syft-scanner/issues/109
+          provenance: false # Messes with Harbor
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.7.0
+        with:
+          cosign-release: 'v2.4.1'
+
+      - name: Sign image (private)
+        if: ${{ github.event.repository.private }}
+        run: cosign sign --yes --key env://COSIGN_PRIVATE_KEY ${{ env.IMAGE_FULL_NAME }}@${{ steps.image.outputs.digest }}
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+
+      - name: Sign image (public)
+        if: ${{ ! github.event.repository.private }}
+        run: cosign sign --yes ${{ env.IMAGE_FULL_NAME }}@${{ steps.image.outputs.digest }}
+
+      - name: Generate artifact attestation
+        if: ${{ ! github.event.repository.private }}
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.IMAGE_FULL_NAME }}
+          subject-digest: ${{ steps.image.outputs.digest }}
+          push-to-registry: false
+
+      - name: Generate SBOM
+        if: ${{ ! github.event.repository.private }}
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.IMAGE_FULL_NAME }}@${{ steps.image.outputs.digest }}
+          artifact-name: sbom.spdx.json
+          output-file: ./sbom.spdx.json
+          upload-artifact: true
+        env:
+          SYFT_SELECT_CATALOGERS: +sbom-cataloger # Catalog nested SBOMs
+
+      - name: Generate SBOM attestation
+        if: ${{ ! github.event.repository.private }}
+        uses: actions/attest-sbom@v1
+        with:
+          subject-name: ${{ env.IMAGE_FULL_NAME }}
+          subject-digest: ${{ steps.image.outputs.digest }}
+          sbom-path: ./sbom.spdx.json
+          push-to-registry: false 
