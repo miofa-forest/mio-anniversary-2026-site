@@ -147,7 +147,7 @@ jobs:
 
       - name: Generate artifact attestation
         if: ${{ ! github.event.repository.private }}
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v4
         with:
           subject-name: ${{ env.IMAGE_FULL_NAME }}
           subject-digest: ${{ steps.image.outputs.digest }}
