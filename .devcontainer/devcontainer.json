@@ -1,0 +1,43 @@
+{
+	"name": "mio-anniversary-2026",
+	"build": {
+        "dockerfile": "./Dockerfile",
+        "context": "."
+    },
+	"features": {
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+            "version": "latest",
+            "moby": false
+        },
+        "ghcr.io/guiyomh/features/vim": {}
+    },
+
+    "postCreateCommand": "npm ci",
+    "remoteEnv": {
+        "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
+    },
+    "mounts": [
+        "source=${localEnv:HOME}/.ssh,target=/home/node/.ssh,type=bind,readonly",
+        {
+            "type": "volume",
+            "source": "devcontainer-home-cache",
+            "target": "/home/node/.cache"
+        }
+    ],
+
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "donjayamanne.githistory",
+                "svelte.svelte-vscode",
+                "esbenp.prettier-vscode",
+                "dbaeumer.vscode-eslint",
+                "bradlc.vscode-tailwindcss",
+                "csstools.postcss",
+                "ms-playwright.playwright",
+                "github.vscode-github-actions",
+                "yzhang.markdown-all-in-one"
+            ]
+        }
+    }
+}
