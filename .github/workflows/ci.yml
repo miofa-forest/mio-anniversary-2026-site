@@ -166,7 +166,7 @@ jobs:
 
       - name: Generate SBOM attestation
         if: ${{ ! github.event.repository.private }}
-        uses: actions/attest-sbom@v1
+        uses: actions/attest-sbom@v4
         with:
           subject-name: ${{ env.IMAGE_FULL_NAME }}
           subject-digest: ${{ steps.image.outputs.digest }}
