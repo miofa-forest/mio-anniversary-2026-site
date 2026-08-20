@@ -47,7 +47,7 @@ jobs:
           cache: npm
 
       - name: Playwright browser cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -63,7 +63,7 @@ jobs:
       # Need to be after npm ci since that clears node_modules
       - name: Build cache
         id: build-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: node_modules/.cache
           key: ${{ runner.os }}-integration-build-cache
