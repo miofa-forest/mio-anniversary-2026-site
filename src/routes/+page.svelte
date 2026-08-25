@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
-  // Active state controller from your original script
-  let activeAlbum: { flipNext: () => void; flipPrev: () => void } | null = null;
+  let currentSpread = 0;
+  let mode: 'single' | 'double' = 'single';
+  let albumElement: HTMLElement;
+  let totalPages = 6; // Cover (0), 4 content leaves (1-4), Back cover (5)
 
-  // Selected entry for the postcard popup
   let selectedEntry: {
     id: number;
     img: string;
@@ -90,6 +91,22 @@
     }
   ];
 
+  function flipNext() {
+    if (currentSpread < totalPages - 1) {
+      currentSpread++;
+    }
+  }
+
+  function flipPrev() {
+    if (currentSpread > 0) {
+      currentSpread--;
+    }
+  }
+
+  function setMode(newMode: 'single' | 'double') {
+    mode = newMode;
+  }
+
   function openDetailModal(entry: typeof selectedEntry, e: MouseEvent) {
     e.stopPropagation();
     selectedEntry = entry;
@@ -99,130 +116,24 @@
     selectedEntry = null;
   }
 
-  /* YOUR EXACT WORKING 3D PHYSICS ENGINE */
-  function init3DAlbum(albumId: string) {
-    const albumState = { currentSpread: 0, totalPages: 0, mode: 'single' };
-    const album = document.getElementById(albumId);
-    if (!album) return null;
-
-    const prevBtn = document.getElementById('prev-btn') as HTMLButtonElement;
-    const nextBtn = document.getElementById('next-btn') as HTMLButtonElement;
-    const singleBtn = document.getElementById('mode-single') as HTMLButtonElement;
-    const doubleBtn = document.getElementById('mode-double') as HTMLButtonElement;
-    const pageIndicator = document.getElementById('page-indicator') as HTMLElement;
-    const pages = Array.from(album.querySelectorAll('.page')) as HTMLElement[];
-    albumState.totalPages = pages.length;
-
-    function renderAlbum() {
-      const isOpen = albumState.currentSpread > 0 && albumState.currentSpread < albumState.totalPages;
-
-      album!.classList.toggle('mode-single', albumState.mode === 'single');
-      album!.classList.toggle('mode-double', albumState.mode === 'double');
-      album!.classList.toggle('open', isOpen);
-      album!.classList.toggle('closed', !isOpen);
-
-      pages.forEach((page, index) => {
-        if (index < albumState.currentSpread) {
-          page.classList.add('flipped');
-          page.style.zIndex = `${index + 1}`;
-        } else {
-          page.classList.remove('flipped');
-          page.style.zIndex = `${albumState.totalPages - index}`;
-        }
-      });
-
-      if (albumState.currentSpread === 0) {
-        if (pageIndicator) pageIndicator.textContent = "Cover";
-      } else if (albumState.currentSpread >= albumState.totalPages - 1) {
-        if (pageIndicator) pageIndicator.textContent = "Back Cover";
-      } else {
-        if (pageIndicator) pageIndicator.textContent = `Page ${albumState.currentSpread} of ${albumState.totalPages - 2}`;
-      }
-
-      if (prevBtn) prevBtn.disabled = albumState.currentSpread === 0;
-      if (nextBtn) nextBtn.disabled = albumState.currentSpread >= albumState.totalPages - 1;
+  function handleKeyDown(e: KeyboardEvent) {
+    if (selectedEntry && e.key === 'Escape') {
+      closeDetailModal();
+      return;
     }
-
-    function flipNext() {
-      if (albumState.currentSpread < albumState.totalPages - 1) {
-        albumState.currentSpread++;
-        renderAlbum();
-      }
+    if (!selectedEntry) {
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') flipNext();
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp') flipPrev();
     }
-
-    function flipPrev() {
-      if (albumState.currentSpread > 0) {
-        albumState.currentSpread--;
-        renderAlbum();
-      }
-    }
-
-    if (nextBtn) nextBtn.onclick = (e) => { e.stopPropagation(); flipNext(); };
-    if (prevBtn) prevBtn.onclick = (e) => { e.stopPropagation(); flipPrev(); };
-
-    if (singleBtn) {
-      singleBtn.onclick = (e) => {
-        e.stopPropagation();
-        albumState.mode = 'single';
-        singleBtn.classList.add('active');
-        if (doubleBtn) doubleBtn.classList.remove('active');
-        renderAlbum();
-      };
-    }
-
-    if (doubleBtn) {
-      doubleBtn.onclick = (e) => {
-        e.stopPropagation();
-        albumState.mode = 'double';
-        doubleBtn.classList.add('active');
-        if (singleBtn) singleBtn.classList.remove('active');
-        renderAlbum();
-      };
-    }
-
-    let startX = 0;
-    let isDragging = false;
-    album.onmousedown = (e) => { isDragging = true; startX = e.clientX; };
-    album.ontouchstart = (e) => { isDragging = true; startX = e.touches[0].clientX; };
-
-    window.onmouseup = (e) => handleDragEnd(e ? e.clientX : 0);
-    window.ontouchend = (e) => handleDragEnd(e && e.changedTouches[0] ? e.changedTouches[0].clientX : 0);
-
-    function handleDragEnd(endX: number) {
-      if (!isDragging) return;
-      isDragging = false;
-      const deltaX = endX - startX;
-      if (Math.abs(deltaX) < 10) {
-        const rect = album!.getBoundingClientRect();
-        if (startX - rect.left > rect.width / 2) flipNext(); else flipPrev();
-      } else if (deltaX < -30) flipNext();
-      else if (deltaX > 30) flipPrev();
-    }
-
-    renderAlbum();
-    return { flipNext, flipPrev };
   }
 
   onMount(() => {
-    activeAlbum = init3DAlbum('album-vol1');
-
-    function handleKeyDown(e: KeyboardEvent) {
-      if (selectedEntry && e.key === 'Escape') {
-        closeDetailModal();
-        return;
-      }
-      if (!selectedEntry && activeAlbum) {
-        if (e.key === 'ArrowRight' || e.key === 'PageDown') activeAlbum.flipNext();
-        if (e.key === 'ArrowLeft' || e.key === 'PageUp') activeAlbum.flipPrev();
-      }
-    }
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   });
 </script>
 
-<!-- 1. TOP HERO GREETING BANNER -->
+<!-- TOP HERO ANNIVERSARY GREETING -->
 <header class="hero-anniversary-banner">
   <div class="banner-content">
     <span class="subtitle">DECEMBER 2018 &bull; 8 YEARS WITH OUR OKAMI</span>
@@ -235,7 +146,7 @@
   </div>
 </header>
 
-<!-- 2. SCROLLABLE 3D BOOK SECTION -->
+<!-- SCROLLABLE 3D BOOK SECTION -->
 <main class="page-container album-page-layout" id="book-section">
   
   <section class="info-section" style="text-align: center; margin-bottom: 5px;">
@@ -249,23 +160,71 @@
   <!-- CONTROLS BAR -->
   <div class="album-controls-bar">
     <div class="mode-toggle">
-      <button id="mode-single" class="active">1 Page Mode</button>
-      <button id="mode-double">2 Pages Mode</button>
+      <button 
+        type="button" 
+        class:active={mode === 'single'} 
+        onclick={() => setMode('single')}
+      >
+        1 Page Mode
+      </button>
+      <button 
+        type="button" 
+        class:active={mode === 'double'} 
+        onclick={() => setMode('double')}
+      >
+        2 Pages Mode
+      </button>
     </div>
     
     <div class="nav-buttons">
-      <button id="prev-btn" disabled>&larr; Previous</button>
-      <span id="page-indicator">Cover</span>
-      <button id="next-btn">Next &rarr;</button>
+      <button 
+        type="button" 
+        onclick={flipPrev} 
+        disabled={currentSpread === 0}
+      >
+        &larr; Previous
+      </button>
+
+      <span class="page-indicator">
+        {#if currentSpread === 0}
+          Cover
+        {:else if currentSpread >= totalPages - 1}
+          Back Cover
+        {:else}
+          Page {currentSpread} of {totalPages - 2}
+        {/if}
+      </span>
+
+      <button 
+        type="button" 
+        onclick={flipNext} 
+        disabled={currentSpread >= totalPages - 1}
+      >
+        Next &rarr;
+      </button>
     </div>
   </div>
 
   <!-- 3D BOOK STAGE -->
   <div class="album-stage">
-    <div id="album-vol1" class="album closed mode-single">
+    <div
+      bind:this={albumElement}
+      class="album"
+      class:mode-single={mode === 'single'}
+      class:mode-double={mode === 'double'}
+      class:closed={currentSpread === 0 || currentSpread >= totalPages - 1}
+      class:open={currentSpread > 0 && currentSpread < totalPages - 1}
+      onclick={flipNext}
+      role="region"
+      aria-label="3D Interactive Album"
+    >
       
-      <!-- COVER (Page 0) -->
-      <div class="page cover" style="z-index: 50;">
+      <!-- COVER (Page Index 0) -->
+      <div 
+        class="page cover" 
+        class:flipped={currentSpread > 0} 
+        style="z-index: {currentSpread > 0 ? 1 : totalPages};"
+      >
         <div class="page-face front cover-face">
           <img class="page-bg" src="/album assets/cover.png" alt="Cover" />
           <div class="page-content cover-content">
@@ -286,7 +245,11 @@
       </div>
 
       <!-- PAGE 1 (Photos 1 & 2) -->
-      <div class="page" style="z-index: 49;">
+      <div 
+        class="page" 
+        class:flipped={currentSpread >= 1}
+        style="z-index: {currentSpread >= 1 ? 2 : totalPages - 1};"
+      >
         <div class="page-face front">
           <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
           <div class="page-content">
@@ -330,7 +293,11 @@
       </div>
 
       <!-- PAGE 2 (Photos 3 & 4) -->
-      <div class="page" style="z-index: 48;">
+      <div 
+        class="page" 
+        class:flipped={currentSpread >= 2}
+        style="z-index: {currentSpread >= 2 ? 3 : totalPages - 2};"
+      >
         <div class="page-face front">
           <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
           <div class="page-content">
@@ -374,7 +341,11 @@
       </div>
 
       <!-- PAGE 3 (Photos 5 & 6) -->
-      <div class="page" style="z-index: 47;">
+      <div 
+        class="page" 
+        class:flipped={currentSpread >= 3}
+        style="z-index: {currentSpread >= 3 ? 4 : totalPages - 3};"
+      >
         <div class="page-face front">
           <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
           <div class="page-content">
@@ -418,7 +389,11 @@
       </div>
 
       <!-- PAGE 4 (Photos 7 & 8) -->
-      <div class="page" style="z-index: 46;">
+      <div 
+        class="page" 
+        class:flipped={currentSpread >= 4}
+        style="z-index: {currentSpread >= 4 ? 5 : totalPages - 4};"
+      >
         <div class="page-face front">
           <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
           <div class="page-content">
@@ -462,7 +437,11 @@
       </div>
 
       <!-- BACK COVER -->
-      <div class="page cover" style="z-index: 1;">
+      <div 
+        class="page cover" 
+        class:flipped={currentSpread >= 5} 
+        style="z-index: {currentSpread >= 5 ? totalPages : 1};"
+      >
         <div class="page-face front">
           <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
           <div class="page-content">
@@ -482,7 +461,7 @@
     </div>
   </div>
 
-  <!-- 3. SUBMISSION CALL TO ACTION -->
+  <!-- SUBMISSION CALL TO ACTION -->
   <section class="action-banner" style="margin-top: 50px; width: 100%; max-width: 900px;">
     <div>
       <h3>Want your local dish featured in the book?</h3>
@@ -491,7 +470,7 @@
     <a href="/submit" class="primary-btn">Go to Submission Page &rarr;</a>
   </section>
 
-  <!-- 4. POLAROID INSPECTION MODAL -->
+  <!-- POLAROID INSPECTION MODAL -->
   {#if selectedEntry}
     <div class="modal-backdrop" onclick={closeDetailModal} role="dialog" aria-modal="true">
       <div class="postcard-container" onclick={(e) => e.stopPropagation()} role="document">
@@ -545,7 +524,7 @@
   /* HERO BANNER */
   .hero-anniversary-banner {
     position: relative;
-    min-height: 50vh;
+    min-height: 48vh;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -596,7 +575,7 @@
     font-size: 1.3rem;
   }
 
-  /* 3D BOOK & CONTROLS */
+  /* 3D BOOK STAGE & LAYOUT */
   .album-page-layout {
     display: flex;
     flex-direction: column;
@@ -614,6 +593,7 @@
     backdrop-filter: blur(10px);
     margin: 20px 0;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    z-index: 100;
   }
 
   .album-controls-bar button {
@@ -646,27 +626,35 @@
 
   .album-stage {
     width: 100%;
+    min-height: 640px;
     display: flex;
     justify-content: center;
     align-items: center;
-    perspective: 2200px;
-    padding: 30px 0;
-    overflow: hidden;
+    perspective: 2000px;
+    padding: 20px 0;
+    overflow: visible;
   }
 
+  /* 3D ALBUM BOX */
   .album {
     position: relative;
     width: 440px;
     height: 600px;
     transform-style: preserve-3d;
     transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
-    cursor: pointer;
   }
 
-  .album.closed { transform: translateX(0); }
-  .album.mode-single.open { transform: translateX(0); }
-  .album.mode-double.open { transform: translateX(220px); }
+  /* Double-page center alignment */
+  .album.mode-double.open {
+    transform: translateX(220px);
+  }
 
+  .album.mode-single.open,
+  .album.closed {
+    transform: translateX(0);
+  }
+
+  /* INDIVIDUAL LEAF */
   .page {
     position: absolute;
     width: 440px;
@@ -677,8 +665,11 @@
     transform-origin: left center;
     transform-style: preserve-3d;
     transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1);
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
     background-color: #1e1e2d;
+  }
+
+  .page.flipped {
+    transform: rotateY(-180deg);
   }
 
   .page-face {
@@ -688,17 +679,16 @@
     top: 0;
     left: 0;
     backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
     border-radius: 0 8px 8px 0;
     overflow: hidden;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
   }
 
+  /* Back of each leaf is flipped 180deg */
   .page-face.back {
     transform: rotateY(180deg);
     border-radius: 8px 0 0 8px;
-  }
-
-  .page.flipped {
-    transform: rotateY(-180deg);
   }
 
   .page-bg {
@@ -716,7 +706,7 @@
     z-index: 2;
     width: 100%;
     height: 100%;
-    padding: 30px;
+    padding: 25px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -750,7 +740,7 @@
 
   .zoomable-wrapper {
     position: relative;
-    cursor: zoom-in;
+    cursor: pointer;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
 
@@ -835,7 +825,7 @@
     z-index: 6;
   }
 
-  /* MODAL */
+  /* MODAL BACKDROP */
   .modal-backdrop {
     position: fixed;
     inset: 0;
