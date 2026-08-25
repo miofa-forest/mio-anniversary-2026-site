@@ -4,10 +4,9 @@
   let currentSpread = 0;
   let mode: 'single' | 'double' = 'single';
   let albumElement: HTMLElement;
-  let pages: HTMLElement[] = [];
-  let totalPages = 0;
+  let totalPages = 6; // 1 Front Cover + 4 Content Leaflets + 1 Back Cover
 
-  // Selected photo for the polaroid / message popup
+  // Track active popup photo & submission note
   let selectedEntry: {
     id: number;
     img: string;
@@ -18,7 +17,7 @@
     message: string;
   } | null = null;
 
-  // Placeholder album entries
+  // Placeholder album dataset
   const albumPages = [
     {
       id: 1,
@@ -94,33 +93,15 @@
     }
   ];
 
-  function updatePageZIndexes() {
-    if (!albumElement) return;
-    pages = Array.from(albumElement.querySelectorAll('.page'));
-    totalPages = pages.length;
-
-    pages.forEach((page, index) => {
-      if (index < currentSpread) {
-        page.classList.add('flipped');
-        page.style.zIndex = `${index + 1}`;
-      } else {
-        page.classList.remove('flipped');
-        page.style.zIndex = `${totalPages - index}`;
-      }
-    });
-  }
-
   function flipNext() {
     if (currentSpread < totalPages - 1) {
       currentSpread++;
-      updatePageZIndexes();
     }
   }
 
   function flipPrev() {
     if (currentSpread > 0) {
       currentSpread--;
-      updatePageZIndexes();
     }
   }
 
@@ -148,16 +129,45 @@
     }
   }
 
+  // Swipe / Drag Gestures
+  let startX = 0;
+  let isDragging = false;
+
+  function onMouseDown(e: MouseEvent) {
+    isDragging = true;
+    startX = e.clientX;
+  }
+
+  function onTouchStart(e: TouchEvent) {
+    isDragging = true;
+    startX = e.touches[0].clientX;
+  }
+
+  function onDragEnd(endX: number) {
+    if (!isDragging) return;
+    isDragging = false;
+    const deltaX = endX - startX;
+    if (Math.abs(deltaX) < 10) {
+      if (albumElement) {
+        const rect = albumElement.getBoundingClientRect();
+        if (startX - rect.left > rect.width / 2) flipNext();
+        else flipPrev();
+      }
+    } else if (deltaX < -30) {
+      flipNext();
+    } else if (deltaX > 30) {
+      flipPrev();
+    }
+  }
+
   onMount(() => {
-    updatePageZIndexes();
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   });
 </script>
 
-<!-- 1. TOP HERO GREETING BANNER -->
+<!-- 1. TOP HERO ANNIVERSARY GREETING -->
 <header class="hero-anniversary-banner">
-  <div class="banner-overlay"></div>
   <div class="banner-content">
     <span class="subtitle">DECEMBER 2018 &bull; 8 YEARS WITH OUR OKAMI</span>
     <h1 class="anniversary-heading">HAPPY 8TH ANNIVERSARY</h1>
@@ -180,14 +190,34 @@
     </p>
   </section>
 
-  <!-- CONTROLS -->
+  <!-- CONTROLS BAR -->
   <div class="album-controls-bar">
     <div class="mode-toggle">
-      <button class:active={mode === 'single'} on:click={() => setMode('single')}>1 Page Mode</button>
-      <button class:active={mode === 'double'} on:click={() => setMode('double')}>2 Pages Mode</button>
+      <button 
+        type="button" 
+        class:active={mode === 'single'} 
+        onclick={() => setMode('single')}
+      >
+        1 Page Mode
+      </button>
+      <button 
+        type="button" 
+        class:active={mode === 'double'} 
+        onclick={() => setMode('double')}
+      >
+        2 Pages Mode
+      </button>
     </div>
+    
     <div class="nav-buttons">
-      <button on:click={flipPrev} disabled={currentSpread === 0}>&larr; Previous</button>
+      <button 
+        type="button" 
+        onclick={flipPrev} 
+        disabled={currentSpread === 0}
+      >
+        &larr; Previous
+      </button>
+
       <span class="page-indicator">
         {#if currentSpread === 0}
           Cover
@@ -197,7 +227,14 @@
           Page {currentSpread} of {totalPages - 2}
         {/if}
       </span>
-      <button on:click={flipNext} disabled={currentSpread >= totalPages - 1}>Next &rarr;</button>
+
+      <button 
+        type="button" 
+        onclick={flipNext} 
+        disabled={currentSpread >= totalPages - 1}
+      >
+        Next &rarr;
+      </button>
     </div>
   </div>
 
@@ -208,13 +245,20 @@
       class="album mode-{mode}"
       class:closed={currentSpread === 0 || currentSpread >= totalPages - 1}
       class:open={currentSpread > 0 && currentSpread < totalPages - 1}
-      on:click={flipNext}
+      onmousedown={onMouseDown}
+      ontouchstart={onTouchStart}
+      onmouseup={(e) => onDragEnd(e.clientX)}
+      ontouchend={(e) => onDragEnd(e.changedTouches[0].clientX)}
       role="region"
       aria-label="3D Interactive Album"
     >
       
-      <!-- COVER -->
-      <div class="page cover">
+      <!-- COVER (Page Index 0) -->
+      <div 
+        class="page cover" 
+        class:flipped={currentSpread > 0} 
+        style:z-index={currentSpread > 0 ? 1 : totalPages}
+      >
         <div class="page-face front cover-face">
           <img class="page-bg" src="/album assets/cover.png" alt="Cover BG" />
           <div class="page-content cover-content">
@@ -234,18 +278,24 @@
         </div>
       </div>
 
-      <!-- ALBUM PAGES -->
+      <!-- ALBUM PAGES (Indices 1 to 4) -->
       {#each Array(4) as _, pIdx}
-        <div class="page">
+        {@const pageNum = pIdx + 1}
+        <div 
+          class="page" 
+          class:flipped={currentSpread > pageNum}
+          style:z-index={currentSpread > pageNum ? pageNum + 1 : totalPages - pageNum}
+        >
           <!-- Front Face -->
           <div class="page-face front">
             <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
             <div class="page-content">
               <div 
                 class="img-wrapper zoomable-wrapper"
-                on:click={(e) => openDetailModal(albumPages[pIdx * 2], e)}
+                onclick={(e) => openDetailModal(albumPages[pIdx * 2], e)}
                 role="button"
                 tabindex="0"
+                onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[pIdx * 2], e as any)}
                 aria-label="Inspect dish and message"
               >
                 <img src={albumPages[pIdx * 2]?.img} alt="Dish {albumPages[pIdx * 2]?.caption}" />
@@ -265,9 +315,10 @@
             <div class="page-content">
               <div 
                 class="img-wrapper zoomable-wrapper"
-                on:click={(e) => openDetailModal(albumPages[pIdx * 2 + 1], e)}
+                onclick={(e) => openDetailModal(albumPages[pIdx * 2 + 1], e)}
                 role="button"
                 tabindex="0"
+                onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[pIdx * 2 + 1], e as any)}
                 aria-label="Inspect dish and message"
               >
                 <img src={albumPages[pIdx * 2 + 1]?.img} alt="Dish {albumPages[pIdx * 2 + 1]?.caption}" />
@@ -283,8 +334,12 @@
         </div>
       {/each}
 
-      <!-- BACK COVER -->
-      <div class="page cover">
+      <!-- BACK COVER (Page Index 5) -->
+      <div 
+        class="page cover" 
+        class:flipped={currentSpread >= totalPages - 1} 
+        style:z-index={currentSpread >= totalPages - 1 ? totalPages : 1}
+      >
         <div class="page-face front">
           <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
           <div class="page-content">
@@ -304,7 +359,7 @@
     </div>
   </div>
 
-  <!-- 3. SUBMISSION CALL TO ACTION LINK -->
+  <!-- 3. SUBMISSION CALL TO ACTION -->
   <section class="action-banner" style="margin-top: 50px; width: 100%; max-width: 900px;">
     <div>
       <h3>Want your local dish featured in the book?</h3>
@@ -313,13 +368,13 @@
     <a href="/submit" class="primary-btn">Go to Submission Page &rarr;</a>
   </section>
 
-  <!-- POLAROID BACK-OF-CARD MODAL -->
+  <!-- 4. POLAROID INSPECTION MODAL -->
   {#if selectedEntry}
-    <div class="modal-backdrop" on:click={closeDetailModal} role="dialog" aria-modal="true">
-      <div class="postcard-container" on:click|stopPropagation>
-        <button class="close-btn" on:click={closeDetailModal} aria-label="Close modal">&times;</button>
+    <div class="modal-backdrop" onclick={closeDetailModal} role="dialog" aria-modal="true">
+      <div class="postcard-container" onclick={(e) => e.stopPropagation()} role="document">
+        <button class="close-btn" onclick={closeDetailModal} aria-label="Close modal">&times;</button>
 
-        <!-- LEFT SIDE: PHOTO -->
+        <!-- LEFT SIDE: PHOTO VIEW -->
         <div class="postcard-front">
           <div class="postcard-photo-frame">
             <img src={selectedEntry.img} alt="Dish" />
@@ -333,7 +388,7 @@
         <!-- DIVIDER -->
         <div class="postcard-divider"></div>
 
-        <!-- RIGHT SIDE: NOTE BACKSIDE -->
+        <!-- RIGHT SIDE: POSTCARD MESSAGE -->
         <div class="postcard-back">
           <div class="stamp-box">
             <span>🐺 MIOFA<br />POST</span>
@@ -364,10 +419,10 @@
 </main>
 
 <style>
-  /* HERO ANNIVERSARY BANNER */
+  /* HERO BANNER */
   .hero-anniversary-banner {
     position: relative;
-    min-height: 55vh;
+    min-height: 52vh;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -485,6 +540,10 @@
     cursor: grab;
   }
 
+  .album:active {
+    cursor: grabbing;
+  }
+
   .album.closed { transform: translateX(0); }
   .album.mode-single.open { transform: translateX(0); }
   .album.mode-double.open { transform: translateX(220px); }
@@ -498,7 +557,7 @@
     border-radius: 0 8px 8px 0;
     transform-origin: left center;
     transform-style: preserve-3d;
-    transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1), z-index 0.8s;
+    transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1);
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
     background-color: #1e1e2d;
   }
