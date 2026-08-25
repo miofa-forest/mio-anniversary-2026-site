@@ -1,12 +1,13 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
 
-  let currentSpread = 0;
-  let mode: 'single' | 'double' = 'single';
-  let albumElement: HTMLElement;
-  let totalPages = 6; // Cover (0), 4 content leaves (1-4), Back cover (5)
+  let currentSpread = $state(0);
+  let mode = $state<'single' | 'double'>('single');
+  let albumElement: HTMLElement | null = null;
+  let totalPages = $state(6); // Cover (0), 4 content leaves (1-4), Back cover (5)
 
-  let selectedEntry: {
+  // Selected photo for the polaroid / message popup
+  let selectedEntry = $state<{
     id: number;
     img: string;
     caption: string;
@@ -14,7 +15,7 @@
     country: string;
     avatar: string;
     message: string;
-  } | null = null;
+  } | null>(null);
 
   const albumPages = [
     {
@@ -91,15 +92,33 @@
     }
   ];
 
+  function updatePageZIndexes() {
+    if (!albumElement) return;
+    const pages = Array.from(albumElement.querySelectorAll('.page')) as HTMLElement[];
+    totalPages = pages.length;
+
+    pages.forEach((page, index) => {
+      if (index < currentSpread) {
+        page.classList.add('flipped');
+        page.style.zIndex = `${index + 1}`;
+      } else {
+        page.classList.remove('flipped');
+        page.style.zIndex = `${totalPages - index}`;
+      }
+    });
+  }
+
   function flipNext() {
     if (currentSpread < totalPages - 1) {
       currentSpread++;
+      updatePageZIndexes();
     }
   }
 
   function flipPrev() {
     if (currentSpread > 0) {
       currentSpread--;
+      updatePageZIndexes();
     }
   }
 
@@ -107,8 +126,8 @@
     mode = newMode;
   }
 
-  function openDetailModal(entry: typeof selectedEntry, e: MouseEvent) {
-    e.stopPropagation();
+  function openDetailModal(entry: typeof selectedEntry, event: MouseEvent) {
+    event.stopPropagation();
     selectedEntry = entry;
   }
 
@@ -127,13 +146,15 @@
     }
   }
 
-  onMount(() => {
+  onMount(async () => {
+    await tick();
+    updatePageZIndexes();
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   });
 </script>
 
-<!-- TOP HERO ANNIVERSARY GREETING -->
+<!-- 1. TOP HERO GREETING BANNER -->
 <header class="hero-anniversary-banner">
   <div class="banner-content">
     <span class="subtitle">DECEMBER 2018 &bull; 8 YEARS WITH OUR OKAMI</span>
@@ -146,7 +167,7 @@
   </div>
 </header>
 
-<!-- SCROLLABLE 3D BOOK SECTION -->
+<!-- 2. SCROLLABLE 3D BOOK SECTION -->
 <main class="page-container album-page-layout" id="book-section">
   
   <section class="info-section" style="text-align: center; margin-bottom: 5px;">
@@ -175,7 +196,6 @@
         2 Pages Mode
       </button>
     </div>
-    
     <div class="nav-buttons">
       <button 
         type="button" 
@@ -184,7 +204,6 @@
       >
         &larr; Previous
       </button>
-
       <span class="page-indicator">
         {#if currentSpread === 0}
           Cover
@@ -194,7 +213,6 @@
           Page {currentSpread} of {totalPages - 2}
         {/if}
       </span>
-
       <button 
         type="button" 
         onclick={flipNext} 
@@ -209,9 +227,7 @@
   <div class="album-stage">
     <div
       bind:this={albumElement}
-      class="album"
-      class:mode-single={mode === 'single'}
-      class:mode-double={mode === 'double'}
+      class="album mode-{mode}"
       class:closed={currentSpread === 0 || currentSpread >= totalPages - 1}
       class:open={currentSpread > 0 && currentSpread < totalPages - 1}
       onclick={flipNext}
@@ -219,14 +235,10 @@
       aria-label="3D Interactive Album"
     >
       
-      <!-- COVER (Page Index 0) -->
-      <div 
-        class="page cover" 
-        class:flipped={currentSpread > 0} 
-        style="z-index: {currentSpread > 0 ? 1 : totalPages};"
-      >
+      <!-- COVER -->
+      <div class="page cover">
         <div class="page-face front cover-face">
-          <img class="page-bg" src="/album assets/cover.png" alt="Cover" />
+          <img class="page-bg" src="/album assets/cover.png" alt="Cover BG" />
           <div class="page-content cover-content">
             <span class="badge">Volume 1</span>
             <h1 class="book-cover-title">Off the gourd;<br />My Mio Travel Book</h1>
@@ -244,204 +256,59 @@
         </div>
       </div>
 
-      <!-- PAGE 1 (Photos 1 & 2) -->
-      <div 
-        class="page" 
-        class:flipped={currentSpread >= 1}
-        style="z-index: {currentSpread >= 1 ? 2 : totalPages - 1};"
-      >
-        <div class="page-face front">
-          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
-          <div class="page-content">
-            <div 
-              class="img-wrapper zoomable-wrapper"
-              onclick={(e) => openDetailModal(albumPages[0], e)}
-              role="button"
-              tabindex="0"
-              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[0], e as any)}
-            >
-              <img src={albumPages[0].img} alt="Dish #1" />
-              <div class="photo-card-tag">
-                <span>{albumPages[0].author} &bull; {albumPages[0].country}</span>
+      <!-- ALBUM PAGES -->
+      {#each Array(4) as _, pIdx}
+        <div class="page">
+          <!-- Front Face -->
+          <div class="page-face front">
+            <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
+            <div class="page-content">
+              <div 
+                class="img-wrapper zoomable-wrapper"
+                onclick={(e) => openDetailModal(albumPages[pIdx * 2], e)}
+                role="button"
+                tabindex="0"
+                onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[pIdx * 2], e as any)}
+                aria-label="Inspect dish and message"
+              >
+                <img src={albumPages[pIdx * 2]?.img} alt="Dish {albumPages[pIdx * 2]?.caption}" />
+                <div class="photo-card-tag">
+                  <span>{albumPages[pIdx * 2]?.author} &bull; {albumPages[pIdx * 2]?.country}</span>
+                </div>
               </div>
+              <p class="caption">{albumPages[pIdx * 2]?.caption}</p>
             </div>
-            <p class="caption">#1</p>
+            <div class="spine-shadow"></div>
+            <div class="curl-shadow"></div>
           </div>
-          <div class="spine-shadow"></div>
-          <div class="curl-shadow"></div>
-        </div>
-        <div class="page-face back">
-          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
-          <div class="page-content">
-            <div 
-              class="img-wrapper zoomable-wrapper"
-              onclick={(e) => openDetailModal(albumPages[1], e)}
-              role="button"
-              tabindex="0"
-              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[1], e as any)}
-            >
-              <img src={albumPages[1].img} alt="Dish #2" />
-              <div class="photo-card-tag">
-                <span>{albumPages[1].author} &bull; {albumPages[1].country}</span>
-              </div>
-            </div>
-            <p class="caption">#2</p>
-          </div>
-          <div class="spine-shadow"></div>
-          <div class="curl-shadow"></div>
-        </div>
-      </div>
 
-      <!-- PAGE 2 (Photos 3 & 4) -->
-      <div 
-        class="page" 
-        class:flipped={currentSpread >= 2}
-        style="z-index: {currentSpread >= 2 ? 3 : totalPages - 2};"
-      >
-        <div class="page-face front">
-          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
-          <div class="page-content">
-            <div 
-              class="img-wrapper zoomable-wrapper"
-              onclick={(e) => openDetailModal(albumPages[2], e)}
-              role="button"
-              tabindex="0"
-              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[2], e as any)}
-            >
-              <img src={albumPages[2].img} alt="Dish #3" />
-              <div class="photo-card-tag">
-                <span>{albumPages[2].author} &bull; {albumPages[2].country}</span>
+          <!-- Back Face -->
+          <div class="page-face back">
+            <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
+            <div class="page-content">
+              <div 
+                class="img-wrapper zoomable-wrapper"
+                onclick={(e) => openDetailModal(albumPages[pIdx * 2 + 1], e)}
+                role="button"
+                tabindex="0"
+                onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[pIdx * 2 + 1], e as any)}
+                aria-label="Inspect dish and message"
+              >
+                <img src={albumPages[pIdx * 2 + 1]?.img} alt="Dish {albumPages[pIdx * 2 + 1]?.caption}" />
+                <div class="photo-card-tag">
+                  <span>{albumPages[pIdx * 2 + 1]?.author} &bull; {albumPages[pIdx * 2 + 1]?.country}</span>
+                </div>
               </div>
+              <p class="caption">{albumPages[pIdx * 2 + 1]?.caption}</p>
             </div>
-            <p class="caption">#3</p>
+            <div class="spine-shadow"></div>
+            <div class="curl-shadow"></div>
           </div>
-          <div class="spine-shadow"></div>
-          <div class="curl-shadow"></div>
         </div>
-        <div class="page-face back">
-          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
-          <div class="page-content">
-            <div 
-              class="img-wrapper zoomable-wrapper"
-              onclick={(e) => openDetailModal(albumPages[3], e)}
-              role="button"
-              tabindex="0"
-              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[3], e as any)}
-            >
-              <img src={albumPages[3].img} alt="Dish #4" />
-              <div class="photo-card-tag">
-                <span>{albumPages[3].author} &bull; {albumPages[3].country}</span>
-              </div>
-            </div>
-            <p class="caption">#4</p>
-          </div>
-          <div class="spine-shadow"></div>
-          <div class="curl-shadow"></div>
-        </div>
-      </div>
-
-      <!-- PAGE 3 (Photos 5 & 6) -->
-      <div 
-        class="page" 
-        class:flipped={currentSpread >= 3}
-        style="z-index: {currentSpread >= 3 ? 4 : totalPages - 3};"
-      >
-        <div class="page-face front">
-          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
-          <div class="page-content">
-            <div 
-              class="img-wrapper zoomable-wrapper"
-              onclick={(e) => openDetailModal(albumPages[4], e)}
-              role="button"
-              tabindex="0"
-              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[4], e as any)}
-            >
-              <img src={albumPages[4].img} alt="Dish #5" />
-              <div class="photo-card-tag">
-                <span>{albumPages[4].author} &bull; {albumPages[4].country}</span>
-              </div>
-            </div>
-            <p class="caption">#5</p>
-          </div>
-          <div class="spine-shadow"></div>
-          <div class="curl-shadow"></div>
-        </div>
-        <div class="page-face back">
-          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
-          <div class="page-content">
-            <div 
-              class="img-wrapper zoomable-wrapper"
-              onclick={(e) => openDetailModal(albumPages[5], e)}
-              role="button"
-              tabindex="0"
-              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[5], e as any)}
-            >
-              <img src={albumPages[5].img} alt="Dish #6" />
-              <div class="photo-card-tag">
-                <span>{albumPages[5].author} &bull; {albumPages[5].country}</span>
-              </div>
-            </div>
-            <p class="caption">#6</p>
-          </div>
-          <div class="spine-shadow"></div>
-          <div class="curl-shadow"></div>
-        </div>
-      </div>
-
-      <!-- PAGE 4 (Photos 7 & 8) -->
-      <div 
-        class="page" 
-        class:flipped={currentSpread >= 4}
-        style="z-index: {currentSpread >= 4 ? 5 : totalPages - 4};"
-      >
-        <div class="page-face front">
-          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
-          <div class="page-content">
-            <div 
-              class="img-wrapper zoomable-wrapper"
-              onclick={(e) => openDetailModal(albumPages[6], e)}
-              role="button"
-              tabindex="0"
-              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[6], e as any)}
-            >
-              <img src={albumPages[6].img} alt="Dish #7" />
-              <div class="photo-card-tag">
-                <span>{albumPages[6].author} &bull; {albumPages[6].country}</span>
-              </div>
-            </div>
-            <p class="caption">#7</p>
-          </div>
-          <div class="spine-shadow"></div>
-          <div class="curl-shadow"></div>
-        </div>
-        <div class="page-face back">
-          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
-          <div class="page-content">
-            <div 
-              class="img-wrapper zoomable-wrapper"
-              onclick={(e) => openDetailModal(albumPages[7], e)}
-              role="button"
-              tabindex="0"
-              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[7], e as any)}
-            >
-              <img src={albumPages[7].img} alt="Dish #8" />
-              <div class="photo-card-tag">
-                <span>{albumPages[7].author} &bull; {albumPages[7].country}</span>
-              </div>
-            </div>
-            <p class="caption">#8</p>
-          </div>
-          <div class="spine-shadow"></div>
-          <div class="curl-shadow"></div>
-        </div>
-      </div>
+      {/each}
 
       <!-- BACK COVER -->
-      <div 
-        class="page cover" 
-        class:flipped={currentSpread >= 5} 
-        style="z-index: {currentSpread >= 5 ? totalPages : 1};"
-      >
+      <div class="page cover">
         <div class="page-face front">
           <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
           <div class="page-content">
@@ -461,7 +328,7 @@
     </div>
   </div>
 
-  <!-- SUBMISSION CALL TO ACTION -->
+  <!-- 3. SUBMISSION CALL TO ACTION LINK -->
   <section class="action-banner" style="margin-top: 50px; width: 100%; max-width: 900px;">
     <div>
       <h3>Want your local dish featured in the book?</h3>
@@ -470,13 +337,13 @@
     <a href="/submit" class="primary-btn">Go to Submission Page &rarr;</a>
   </section>
 
-  <!-- POLAROID INSPECTION MODAL -->
+  <!-- POLAROID BACK-OF-CARD MODAL -->
   {#if selectedEntry}
     <div class="modal-backdrop" onclick={closeDetailModal} role="dialog" aria-modal="true">
       <div class="postcard-container" onclick={(e) => e.stopPropagation()} role="document">
         <button class="close-btn" onclick={closeDetailModal} aria-label="Close modal">&times;</button>
 
-        <!-- LEFT SIDE: PHOTO VIEW -->
+        <!-- LEFT SIDE: PHOTO -->
         <div class="postcard-front">
           <div class="postcard-photo-frame">
             <img src={selectedEntry.img} alt="Dish" />
@@ -490,7 +357,7 @@
         <!-- DIVIDER -->
         <div class="postcard-divider"></div>
 
-        <!-- RIGHT SIDE: POSTCARD MESSAGE -->
+        <!-- RIGHT SIDE: NOTE BACKSIDE -->
         <div class="postcard-back">
           <div class="stamp-box">
             <span>🐺 MIOFA<br />POST</span>
@@ -521,10 +388,10 @@
 </main>
 
 <style>
-  /* HERO BANNER */
+  /* HERO ANNIVERSARY BANNER */
   .hero-anniversary-banner {
     position: relative;
-    min-height: 48vh;
+    min-height: 50vh;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -575,7 +442,7 @@
     font-size: 1.3rem;
   }
 
-  /* 3D BOOK STAGE & LAYOUT */
+  /* 3D BOOK & CONTROLS */
   .album-page-layout {
     display: flex;
     flex-direction: column;
@@ -631,20 +498,19 @@
     justify-content: center;
     align-items: center;
     perspective: 2000px;
-    padding: 20px 0;
+    padding: 30px 0;
     overflow: visible;
   }
 
-  /* 3D ALBUM BOX */
   .album {
     position: relative;
     width: 440px;
     height: 600px;
     transform-style: preserve-3d;
     transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+    cursor: pointer;
   }
 
-  /* Double-page center alignment */
   .album.mode-double.open {
     transform: translateX(220px);
   }
@@ -654,7 +520,6 @@
     transform: translateX(0);
   }
 
-  /* INDIVIDUAL LEAF */
   .page {
     position: absolute;
     width: 440px;
@@ -665,11 +530,8 @@
     transform-origin: left center;
     transform-style: preserve-3d;
     transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
     background-color: #1e1e2d;
-  }
-
-  .page.flipped {
-    transform: rotateY(-180deg);
   }
 
   .page-face {
@@ -682,13 +544,15 @@
     -webkit-backface-visibility: hidden;
     border-radius: 0 8px 8px 0;
     overflow: hidden;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
   }
 
-  /* Back of each leaf is flipped 180deg */
   .page-face.back {
     transform: rotateY(180deg);
     border-radius: 8px 0 0 8px;
+  }
+
+  .page.flipped {
+    transform: rotateY(-180deg);
   }
 
   .page-bg {
@@ -706,7 +570,7 @@
     z-index: 2;
     width: 100%;
     height: 100%;
-    padding: 25px;
+    padding: 30px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -740,7 +604,7 @@
 
   .zoomable-wrapper {
     position: relative;
-    cursor: pointer;
+    cursor: zoom-in;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
 
@@ -825,7 +689,7 @@
     z-index: 6;
   }
 
-  /* MODAL BACKDROP */
+  /* MODAL */
   .modal-backdrop {
     position: fixed;
     inset: 0;
