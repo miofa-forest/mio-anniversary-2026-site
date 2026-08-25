@@ -4,9 +4,9 @@
   let currentSpread = 0;
   let mode: 'single' | 'double' = 'single';
   let albumElement: HTMLElement;
-  let totalPages = 6; // 1 Front Cover + 4 Content Leaflets + 1 Back Cover
+  let totalPages = 6; // Cover (0), 4 content leaves (1-4), Back cover (5)
 
-  // Track active popup photo & submission note
+  // Selected photo for the polaroid / message popup
   let selectedEntry: {
     id: number;
     img: string;
@@ -129,44 +129,13 @@
     }
   }
 
-  // Swipe / Drag Gestures
-  let startX = 0;
-  let isDragging = false;
-
-  function onMouseDown(e: MouseEvent) {
-    isDragging = true;
-    startX = e.clientX;
-  }
-
-  function onTouchStart(e: TouchEvent) {
-    isDragging = true;
-    startX = e.touches[0].clientX;
-  }
-
-  function onDragEnd(endX: number) {
-    if (!isDragging) return;
-    isDragging = false;
-    const deltaX = endX - startX;
-    if (Math.abs(deltaX) < 10) {
-      if (albumElement) {
-        const rect = albumElement.getBoundingClientRect();
-        if (startX - rect.left > rect.width / 2) flipNext();
-        else flipPrev();
-      }
-    } else if (deltaX < -30) {
-      flipNext();
-    } else if (deltaX > 30) {
-      flipPrev();
-    }
-  }
-
   onMount(() => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   });
 </script>
 
-<!-- 1. TOP HERO ANNIVERSARY GREETING -->
+<!-- TOP HERO ANNIVERSARY GREETING -->
 <header class="hero-anniversary-banner">
   <div class="banner-content">
     <span class="subtitle">DECEMBER 2018 &bull; 8 YEARS WITH OUR OKAMI</span>
@@ -179,7 +148,7 @@
   </div>
 </header>
 
-<!-- 2. SCROLLABLE 3D BOOK SECTION -->
+<!-- SCROLLABLE 3D BOOK SECTION -->
 <main class="page-container album-page-layout" id="book-section">
   
   <section class="info-section" style="text-align: center; margin-bottom: 5px;">
@@ -245,10 +214,7 @@
       class="album mode-{mode}"
       class:closed={currentSpread === 0 || currentSpread >= totalPages - 1}
       class:open={currentSpread > 0 && currentSpread < totalPages - 1}
-      onmousedown={onMouseDown}
-      ontouchstart={onTouchStart}
-      onmouseup={(e) => onDragEnd(e.clientX)}
-      ontouchend={(e) => onDragEnd(e.changedTouches[0].clientX)}
+      onclick={flipNext}
       role="region"
       aria-label="3D Interactive Album"
     >
@@ -257,7 +223,7 @@
       <div 
         class="page cover" 
         class:flipped={currentSpread > 0} 
-        style:z-index={currentSpread > 0 ? 1 : totalPages}
+        style="z-index: {currentSpread > 0 ? 1 : totalPages};"
       >
         <div class="page-face front cover-face">
           <img class="page-bg" src="/album assets/cover.png" alt="Cover BG" />
@@ -283,8 +249,8 @@
         {@const pageNum = pIdx + 1}
         <div 
           class="page" 
-          class:flipped={currentSpread > pageNum}
-          style:z-index={currentSpread > pageNum ? pageNum + 1 : totalPages - pageNum}
+          class:flipped={currentSpread >= pageNum}
+          style="z-index: {currentSpread >= pageNum ? pageNum + 1 : totalPages - pageNum};"
         >
           <!-- Front Face -->
           <div class="page-face front">
@@ -338,7 +304,7 @@
       <div 
         class="page cover" 
         class:flipped={currentSpread >= totalPages - 1} 
-        style:z-index={currentSpread >= totalPages - 1 ? totalPages : 1}
+        style="z-index: {currentSpread >= totalPages - 1 ? totalPages : 1};"
       >
         <div class="page-face front">
           <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
@@ -359,7 +325,7 @@
     </div>
   </div>
 
-  <!-- 3. SUBMISSION CALL TO ACTION -->
+  <!-- SUBMISSION CALL TO ACTION -->
   <section class="action-banner" style="margin-top: 50px; width: 100%; max-width: 900px;">
     <div>
       <h3>Want your local dish featured in the book?</h3>
@@ -368,7 +334,7 @@
     <a href="/submit" class="primary-btn">Go to Submission Page &rarr;</a>
   </section>
 
-  <!-- 4. POLAROID INSPECTION MODAL -->
+  <!-- POLAROID INSPECTION MODAL -->
   {#if selectedEntry}
     <div class="modal-backdrop" onclick={closeDetailModal} role="dialog" aria-modal="true">
       <div class="postcard-container" onclick={(e) => e.stopPropagation()} role="document">
@@ -537,11 +503,7 @@
     height: 600px;
     transform-style: preserve-3d;
     transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
-    cursor: grab;
-  }
-
-  .album:active {
-    cursor: grabbing;
+    cursor: pointer;
   }
 
   .album.closed { transform: translateX(0); }
