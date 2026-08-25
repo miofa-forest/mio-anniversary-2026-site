@@ -1,27 +1,40 @@
 <script lang="ts">
-  let author = '';
-  let isAnonymous = false;
-  let category = 'fanletter';
+  let displayName = '';
+  let avatarInput: HTMLInputElement;
+  let avatarPreviewUrl: string | null = null;
+  
+  let country = '';
+  let foodInput: HTMLInputElement;
+  let foodPreviewUrl: string | null = null;
+  
+  let username = '';
+  let password = '';
+  let contact = '';
   let message = '';
-  let fileInput: HTMLInputElement;
-  let imagePreviewUrl: string | null = null;
+  
   let feedbackMessage = '';
   let isSubmitting = false;
 
-  function toggleAnonymous() {
-    if (isAnonymous) {
-      author = 'miofa-' + Math.random().toString(36).substring(2, 8);
+  const defaultAvatars = [
+    '/user/m1.jpg',
+    '/user/m1.jpg'
+  ];
+
+  function handleAvatarChange(event: Event) {
+    const target = event.target as HTMLInputElement;
+    if (target.files && target.files[0]) {
+      avatarPreviewUrl = URL.createObjectURL(target.files[0]);
     } else {
-      author = '';
+      avatarPreviewUrl = null;
     }
   }
 
-  function handleFileChange(event: Event) {
+  function handleFoodChange(event: Event) {
     const target = event.target as HTMLInputElement;
     if (target.files && target.files[0]) {
-      imagePreviewUrl = URL.createObjectURL(target.files[0]);
+      foodPreviewUrl = URL.createObjectURL(target.files[0]);
     } else {
-      imagePreviewUrl = null;
+      foodPreviewUrl = null;
     }
   }
 
@@ -30,17 +43,30 @@
     isSubmitting = true;
     feedbackMessage = 'Submitting your entry...';
 
-    const cleanAuthor = author.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
-    const formData = new FormData();
-    formData.append('author', cleanAuthor);
-    formData.append('isAnonymous', isAnonymous ? 'true' : 'false');
-    formData.append('type', category);
-    formData.append('event', '8th_anniversary');
-    formData.append('year', '2026');
-    formData.append('message', message);
+    // Fallbacks
+    const finalDisplayName = displayName.trim() || 'Anonymous Miofa';
+    const finalMessage = message.trim() || 'Happy 8th Anniversary, Mio mama! 🌲✨';
 
-    if (fileInput?.files?.[0]) {
-      formData.append('image', fileInput.files[0]);
+    const formData = new FormData();
+    formData.append('displayName', finalDisplayName);
+    formData.append('country', country.trim());
+    formData.append('username', username.trim().toLowerCase());
+    formData.append('password', password);
+    formData.append('contact', contact.trim());
+    formData.append('message', finalMessage);
+    formData.append('event', '8th_anniversary');
+    formData.append('category', 'album_entry');
+
+    if (avatarInput?.files?.[0]) {
+      formData.append('avatar', avatarInput.files[0]);
+    } else {
+      // Pick random default avatar
+      const randomAvatar = defaultAvatars[Math.floor(Math.random() * defaultAvatars.length)];
+      formData.append('defaultAvatarUrl', randomAvatar);
+    }
+
+    if (foodInput?.files?.[0]) {
+      formData.append('foodImage', foodInput.files[0]);
     }
 
     try {
@@ -51,13 +77,19 @@
       const result = await res.json();
 
       if (result.success) {
-        feedbackMessage = `✓ Submission received for [${cleanAuthor}]. Thank you for contributing!`;
-        author = '';
+        feedbackMessage = `✓ Entry received for [${finalDisplayName}] from ${country}! Thank you for contributing to the album!`;
+        displayName = '';
+        country = '';
+        username = '';
+        password = '';
+        contact = '';
         message = '';
-        imagePreviewUrl = null;
-        if (fileInput) fileInput.value = '';
+        avatarPreviewUrl = null;
+        foodPreviewUrl = null;
+        if (avatarInput) avatarInput.value = '';
+        if (foodInput) foodInput.value = '';
       } else {
-        feedbackMessage = '❌ Submission failed. Please try again.';
+        feedbackMessage = '❌ Submission failed. Please verify the form inputs.';
       }
     } catch {
       feedbackMessage = '❌ Server connection error.';
@@ -69,75 +101,133 @@
 
 <main class="page-container">
   <section class="info-section">
-    <span class="date">CALL FOR SUBMISSIONS &bull; 8TH ANNIVERSARY</span>
-    <h2>Send Your Artwork & Messages</h2>
+    <span class="date">8TH ANNIVERSARY &bull; COMMEMORATIVE ALBUM</span>
+    <h2>Submit to the Travel & Food Collection</h2>
     <p>
-      Contribute your fan letters, illustrations, or memories for Mio's 8th Anniversary project.
+      Share a photo of food or a local dish from your region to be bound into Mio's 8th Anniversary 
+      commemorative book.
     </p>
 
     <form class="submission-form" on:submit={handleSubmit}>
       
+      <!-- 1. NAME (OPTIONAL) -->
       <div class="form-group">
-        <label for="author-input">Miofa Name / Twitter Handle</label>
+        <label for="display-name">
+          Name to Display <span class="optional">(Optional &bull; Leave blank to submit as "Anonymous Miofa")</span>
+        </label>
         <input
           type="text"
-          id="author-input"
+          id="display-name"
           placeholder="e.g. Miofa1"
-          bind:value={author}
-          disabled={isAnonymous}
-          required
+          bind:value={displayName}
         />
       </div>
 
-      <div class="form-group checkbox-group">
-        <label>
-          <input
-            type="checkbox"
-            bind:checked={isAnonymous}
-            on:change={toggleAnonymous}
-          />
-          Submit Anonymously (Auto-assigns UUID)
+      <!-- 2. PROFILE PIC (OPTIONAL) -->
+      <div class="form-group">
+        <label for="avatar-input">
+          Profile Picture <span class="optional">(Optional &bull; Defaults to a random Miofa avatar)</span>
         </label>
-      </div>
-
-      <div class="form-group">
-        <label for="category-select">Category</label>
-        <select id="category-select" bind:value={category} required>
-          <option value="fanletter"> Fan Letter</option>
-          <option value="fanart"> Fan Illustration</option>
-          <option value="moment"> Mio Moment Highlight</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="message-input">Your Message</label>
-        <textarea
-          id="message-input"
-          rows="5"
-          placeholder="Write your note or describe your submission..."
-          bind:value={message}
-          required
-        ></textarea>
-      </div>
-
-      <div class="form-group">
-        <label for="file-input">Attach Artwork (Optional)</label>
         <input
           type="file"
-          id="file-input"
+          id="avatar-input"
           accept="image/*"
-          bind:this={fileInput}
-          on:change={handleFileChange}
+          bind:this={avatarInput}
+          on:change={handleAvatarChange}
         />
-        {#if imagePreviewUrl}
-          <div class="preview-box">
-            <img src={imagePreviewUrl} alt="Preview" />
+        {#if avatarPreviewUrl}
+          <div class="preview-box avatar-preview">
+            <img src={avatarPreviewUrl} alt="Avatar Preview" />
           </div>
         {/if}
       </div>
 
+      <!-- 3. COUNTRY (REQUIRED) -->
+      <div class="form-group">
+        <label for="country-input">Country / Region <span class="required">*</span></label>
+        <input
+          type="text"
+          id="country-input"
+          placeholder="e.g. Japan, Philippines, Germany, USA"
+          bind:value={country}
+          required
+        />
+      </div>
+
+      <!-- 4. PICTURE OF FOOD (REQUIRED) -->
+      <div class="form-group">
+        <label for="food-input">Picture of Food / Local Dish <span class="required">*</span></label>
+        <input
+          type="file"
+          id="food-input"
+          accept="image/*"
+          bind:this={foodInput}
+          on:change={handleFoodChange}
+          required
+        />
+        {#if foodPreviewUrl}
+          <div class="preview-box">
+            <img src={foodPreviewUrl} alt="Food Preview" />
+          </div>
+        {/if}
+      </div>
+
+      <!-- 5. PRIVATE ACCOUNT KEYS (FOR EDITING LATER) -->
+      <div class="auth-box">
+        <span class="date">PRIVATE ACCOUNT KEYS (NOT SHOWN PUBLICLY)</span>
+        <p class="auth-desc">
+          Save your username, password, and contact information. You will use these to edit or request deletion of your entry later.
+        </p>
+
+        <div class="form-group">
+          <label for="username-input">Username <span class="required">*</span></label>
+          <input
+            type="text"
+            id="username-input"
+            placeholder="Unique username for editing"
+            bind:value={username}
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="password-input">Password <span class="required">*</span></label>
+          <input
+            type="password"
+            id="password-input"
+            placeholder="Secret password"
+            bind:value={password}
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="contact-input">Contact for Identity Verification <span class="required">*</span></label>
+          <input
+            type="text"
+            id="contact-input"
+            placeholder="Discord handle, Twitter/X @handle, or Email"
+            bind:value={contact}
+            required
+          />
+        </div>
+      </div>
+
+      <!-- 6. MESSAGE (OPTIONAL) -->
+      <div class="form-group" style="margin-top: 25px;">
+        <label for="message-input">
+          Message / Dish Note <span class="optional">(Optional &bull; Defaults to a generic 8th anniversary greeting)</span>
+        </label>
+        <textarea
+          id="message-input"
+          rows="4"
+          placeholder="Write your note or describe your dish..."
+          bind:value={message}
+        ></textarea>
+      </div>
+
       <button type="submit" class="primary-btn" disabled={isSubmitting}>
-        {isSubmitting ? 'Uploading...' : 'Submit to Archive →'}
+        {isSubmitting ? 'Uploading...' : 'Submit to Travel Album →'}
       </button>
 
       {#if feedbackMessage}
@@ -146,3 +236,36 @@
     </form>
   </section>
 </main>
+
+<style>
+  .required { color: #c92a42; }
+  .optional { font-size: 0.8rem; color: #94a3b8; font-weight: normal; }
+
+  .auth-box {
+    margin-top: 25px;
+    padding: 22px;
+    background: rgba(0, 0, 0, 0.28);
+    border-radius: 8px;
+    border-left: 3px solid #c92a42;
+  }
+
+  .auth-desc {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    margin-bottom: 15px;
+  }
+
+  .avatar-preview {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+
+  .avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+</style>
