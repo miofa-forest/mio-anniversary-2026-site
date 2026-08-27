@@ -235,7 +235,7 @@
       aria-label="3D Interactive Album"
     >
       
-      <!-- COVER -->
+      <!-- COVER (Page 0) -->
       <div class="page cover">
         <div class="page-face front cover-face">
           <img class="page-bg" src="/album assets/cover.png" alt="Cover BG" />
@@ -256,56 +256,189 @@
         </div>
       </div>
 
-      <!-- ALBUM PAGES -->
-      {#each Array(4) as _, pIdx}
-        <div class="page">
-          <!-- Front Face -->
-          <div class="page-face front">
-            <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
-            <div class="page-content">
-              <div 
-                class="img-wrapper zoomable-wrapper"
-                onclick={(e) => openDetailModal(albumPages[pIdx * 2], e)}
-                role="button"
-                tabindex="0"
-                onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[pIdx * 2], e as any)}
-                aria-label="Inspect dish and message"
-              >
-                <img src={albumPages[pIdx * 2]?.img} alt="Dish {albumPages[pIdx * 2]?.caption}" />
-                <div class="photo-card-tag">
-                  <span>{albumPages[pIdx * 2]?.author} &bull; {albumPages[pIdx * 2]?.country}</span>
-                </div>
+      <!-- LEAF 1: Front = Photo 1 (#1), Back = Photo 2 (#2) -->
+      <div class="page">
+        <div class="page-face front">
+          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
+          <div class="page-content">
+            <div 
+              class="img-wrapper zoomable-wrapper"
+              onclick={(e) => openDetailModal(albumPages[0], e)}
+              role="button"
+              tabindex="0"
+              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[0], e as any)}
+              aria-label="Inspect dish and message"
+            >
+              <img src={albumPages[0].img} alt="Dish #1" />
+              <div class="photo-card-tag">
+                <span>{albumPages[0].author} &bull; {albumPages[0].country}</span>
               </div>
-              <p class="caption">{albumPages[pIdx * 2]?.caption}</p>
             </div>
-            <div class="spine-shadow"></div>
-            <div class="curl-shadow"></div>
+            <p class="caption">#1</p>
           </div>
-
-          <!-- Back Face -->
-          <div class="page-face back">
-            <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
-            <div class="page-content">
-              <div 
-                class="img-wrapper zoomable-wrapper"
-                onclick={(e) => openDetailModal(albumPages[pIdx * 2 + 1], e)}
-                role="button"
-                tabindex="0"
-                onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[pIdx * 2 + 1], e as any)}
-                aria-label="Inspect dish and message"
-              >
-                <img src={albumPages[pIdx * 2 + 1]?.img} alt="Dish {albumPages[pIdx * 2 + 1]?.caption}" />
-                <div class="photo-card-tag">
-                  <span>{albumPages[pIdx * 2 + 1]?.author} &bull; {albumPages[pIdx * 2 + 1]?.country}</span>
-                </div>
-              </div>
-              <p class="caption">{albumPages[pIdx * 2 + 1]?.caption}</p>
-            </div>
-            <div class="spine-shadow"></div>
-            <div class="curl-shadow"></div>
-          </div>
+          <div class="spine-shadow"></div>
+          <div class="curl-shadow"></div>
         </div>
-      {/each}
+        <div class="page-face back">
+          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
+          <div class="page-content">
+            <div 
+              class="img-wrapper zoomable-wrapper"
+              onclick={(e) => openDetailModal(albumPages[1], e)}
+              role="button"
+              tabindex="0"
+              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[1], e as any)}
+              aria-label="Inspect dish and message"
+            >
+              <img src={albumPages[1].img} alt="Dish #2" />
+              <div class="photo-card-tag">
+                <span>{albumPages[1].author} &bull; {albumPages[1].country}</span>
+              </div>
+            </div>
+            <p class="caption">#2</p>
+          </div>
+          <div class="spine-shadow"></div>
+          <div class="curl-shadow"></div>
+        </div>
+      </div>
+
+      <!-- LEAF 2: Front = Photo 3 (#3), Back = Photo 4 (#4) -->
+      <div class="page">
+        <div class="page-face front">
+          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
+          <div class="page-content">
+            <div 
+              class="img-wrapper zoomable-wrapper"
+              onclick={(e) => openDetailModal(albumPages[2], e)}
+              role="button"
+              tabindex="0"
+              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[2], e as any)}
+              aria-label="Inspect dish and message"
+            >
+              <img src={albumPages[2].img} alt="Dish #3" />
+              <div class="photo-card-tag">
+                <span>{albumPages[2].author} &bull; {albumPages[2].country}</span>
+              </div>
+            </div>
+            <p class="caption">#3</p>
+          </div>
+          <div class="spine-shadow"></div>
+          <div class="curl-shadow"></div>
+        </div>
+        <div class="page-face back">
+          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
+          <div class="page-content">
+            <div 
+              class="img-wrapper zoomable-wrapper"
+              onclick={(e) => openDetailModal(albumPages[3], e)}
+              role="button"
+              tabindex="0"
+              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[3], e as any)}
+              aria-label="Inspect dish and message"
+            >
+              <img src={albumPages[3].img} alt="Dish #4" />
+              <div class="photo-card-tag">
+                <span>{albumPages[3].author} &bull; {albumPages[3].country}</span>
+              </div>
+            </div>
+            <p class="caption">#4</p>
+          </div>
+          <div class="spine-shadow"></div>
+          <div class="curl-shadow"></div>
+        </div>
+      </div>
+
+      <!-- LEAF 3: Front = Photo 5 (#5), Back = Photo 6 (#6) -->
+      <div class="page">
+        <div class="page-face front">
+          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
+          <div class="page-content">
+            <div 
+              class="img-wrapper zoomable-wrapper"
+              onclick={(e) => openDetailModal(albumPages[4], e)}
+              role="button"
+              tabindex="0"
+              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[4], e as any)}
+              aria-label="Inspect dish and message"
+            >
+              <img src={albumPages[4].img} alt="Dish #5" />
+              <div class="photo-card-tag">
+                <span>{albumPages[4].author} &bull; {albumPages[4].country}</span>
+              </div>
+            </div>
+            <p class="caption">#5</p>
+          </div>
+          <div class="spine-shadow"></div>
+          <div class="curl-shadow"></div>
+        </div>
+        <div class="page-face back">
+          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
+          <div class="page-content">
+            <div 
+              class="img-wrapper zoomable-wrapper"
+              onclick={(e) => openDetailModal(albumPages[5], e)}
+              role="button"
+              tabindex="0"
+              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[5], e as any)}
+              aria-label="Inspect dish and message"
+            >
+              <img src={albumPages[5].img} alt="Dish #6" />
+              <div class="photo-card-tag">
+                <span>{albumPages[5].author} &bull; {albumPages[5].country}</span>
+              </div>
+            </div>
+            <p class="caption">#6</p>
+          </div>
+          <div class="spine-shadow"></div>
+          <div class="curl-shadow"></div>
+        </div>
+      </div>
+
+      <!-- LEAF 4: Front = Photo 7 (#7), Back = Photo 8 (#8) -->
+      <div class="page">
+        <div class="page-face front">
+          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
+          <div class="page-content">
+            <div 
+              class="img-wrapper zoomable-wrapper"
+              onclick={(e) => openDetailModal(albumPages[6], e)}
+              role="button"
+              tabindex="0"
+              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[6], e as any)}
+              aria-label="Inspect dish and message"
+            >
+              <img src={albumPages[6].img} alt="Dish #7" />
+              <div class="photo-card-tag">
+                <span>{albumPages[6].author} &bull; {albumPages[6].country}</span>
+              </div>
+            </div>
+            <p class="caption">#7</p>
+          </div>
+          <div class="spine-shadow"></div>
+          <div class="curl-shadow"></div>
+        </div>
+        <div class="page-face back">
+          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
+          <div class="page-content">
+            <div 
+              class="img-wrapper zoomable-wrapper"
+              onclick={(e) => openDetailModal(albumPages[7], e)}
+              role="button"
+              tabindex="0"
+              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[7], e as any)}
+              aria-label="Inspect dish and message"
+            >
+              <img src={albumPages[7].img} alt="Dish #8" />
+              <div class="photo-card-tag">
+                <span>{albumPages[7].author} &bull; {albumPages[7].country}</span>
+              </div>
+            </div>
+            <p class="caption">#8</p>
+          </div>
+          <div class="spine-shadow"></div>
+          <div class="curl-shadow"></div>
+        </div>
+      </div>
 
       <!-- BACK COVER -->
       <div class="page cover">
@@ -534,6 +667,7 @@
     background-color: #1e1e2d;
   }
 
+  /* KEYBOARD & POINTER HIT-TEST PROTECTION */
   .page-face {
     position: absolute;
     width: 100%;
@@ -544,6 +678,22 @@
     -webkit-backface-visibility: hidden;
     border-radius: 0 8px 8px 0;
     overflow: hidden;
+  }
+
+  /* When page is normal (unflipped), front face is active, back face ignores pointer events */
+  .page:not(.flipped) .page-face.front {
+    pointer-events: auto;
+  }
+  .page:not(.flipped) .page-face.back {
+    pointer-events: none;
+  }
+
+  /* When page is flipped, back face is active, front face ignores pointer events */
+  .page.flipped .page-face.front {
+    pointer-events: none;
+  }
+  .page.flipped .page-face.back {
+    pointer-events: auto;
   }
 
   .page-face.back {
