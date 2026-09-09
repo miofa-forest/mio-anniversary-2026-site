@@ -1,6 +1,9 @@
 import { query } from '$app/server';
-import { getSubmissions } from '$lib/submissions';
+import { getStore } from '$lib/submissions';
 
+/**
+ * Retrieves the currently stored submissions.
+ */
 export const listSubmissions = query(async () => {
-	return await getSubmissions();
+	return await getStore().getSubmissions();
 });
