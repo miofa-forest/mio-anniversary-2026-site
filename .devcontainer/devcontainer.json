@@ -1,9 +1,11 @@
 {
 	"name": "mio-anniversary-2026",
-	"build": {
-        "dockerfile": "./Dockerfile",
-        "context": "."
-    },
+	"dockerComposeFile": [
+        "./docker-compose.yaml"
+    ],
+    "service": "devcontainer",
+    "workspaceFolder": "/workspace",
+
 	"features": {
         "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
             "version": "latest",
@@ -12,18 +14,12 @@
         "ghcr.io/guiyomh/features/vim": {}
     },
 
-    "postCreateCommand": "npm ci",
-    "remoteEnv": {
-        "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
+    "containerEnv": {
+        "WORKSPACE_FOLDER_HOST": "${localWorkspaceFolder}",
+        "WORKSPACE_FOLDER_CONTAINER": "${containerWorkspaceFolder}"
     },
-    "mounts": [
-        "source=${localEnv:HOME}/.ssh,target=/home/node/.ssh,type=bind,readonly",
-        {
-            "type": "volume",
-            "source": "devcontainer-home-cache",
-            "target": "/home/node/.cache"
-        }
-    ],
+
+    "postCreateCommand": "npm ci",
 
     "customizations": {
         "vscode": {

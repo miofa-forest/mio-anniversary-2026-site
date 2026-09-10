@@ -1,0 +1,25 @@
+services:
+  devcontainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sleep infinity
+    volumes:
+      - type: bind
+        source: ..
+        target: /workspace
+      - type: bind
+        source: ${HOME}/.ssh
+        target: /home/node/.ssh
+        read_only: true
+      - type: volume
+        source: vscode-extensions
+        target: /home/node/.vscode-server/extensions
+      - type: volume
+        source: user-cache
+        target: /home/node/.cache
+
+volumes:
+  vscode-extensions:
+  user-cache:
+    name: devcontainer-home-cache
