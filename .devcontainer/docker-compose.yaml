@@ -1,3 +1,12 @@
+x-parameters:
+  # Database parameters
+  - &database-admin-name "${DATABASE_ADMIN_NAME:-postgres}"
+  - &database-admin-user "${DATABASE_ADMIN_USER:-postgres}"
+  - &database-admin-password "${DATABASE_ADMIN_PASSWORD:-SamplePassword}"
+  - &database-name "${DATABASE_NAME:-site}"
+  - &database-user "${DATABASE_USER:-server}"
+  - &database-password "${DATABASE_PASSWORD:-SamplePassword}"
+
 services:
   devcontainer:
     build:
@@ -19,7 +28,25 @@ services:
         source: user-cache
         target: /home/node/.cache
 
+  db:
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: postgres-data
+        target: /var/lib/postgresql
+    environment:
+      POSTGRES_DB: *database-admin-name
+      POSTGRES_USER: *database-admin-user
+      POSTGRES_PASSWORD: *database-admin-password
+      DATABASE_NAME: *database-name
+      DATABASE_USER: *database-user
+      DATABASE_PASSWORD: *database-password
+
 volumes:
   vscode-extensions:
   user-cache:
     name: devcontainer-home-cache
+  postgres-data:
