@@ -27,6 +27,14 @@ services:
       - type: volume
         source: user-cache
         target: /home/node/.cache
+    environment:
+      DATABASE_HOST: db
+      DATABASE_ADMIN_NAME: *database-admin-name
+      DATABASE_ADMIN_USER: *database-admin-user
+      DATABASE_ADMIN_PASSWORD: *database-admin-password
+      DATABASE_NAME: *database-name
+      DATABASE_USER: *database-user
+      DATABASE_PASSWORD: *database-password
 
   db:
     build:
