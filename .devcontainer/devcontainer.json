@@ -24,16 +24,44 @@
     "customizations": {
         "vscode": {
             "extensions": [
-                "donjayamanne.githistory",
-                "svelte.svelte-vscode",
-                "esbenp.prettier-vscode",
-                "dbaeumer.vscode-eslint",
-                "bradlc.vscode-tailwindcss",
-                "csstools.postcss",
-                "ms-playwright.playwright",
-                "github.vscode-github-actions",
-                "yzhang.markdown-all-in-one"
-            ]
+				"donjayamanne.githistory",
+				"svelte.svelte-vscode",
+				"esbenp.prettier-vscode",
+				"dbaeumer.vscode-eslint",
+				"bradlc.vscode-tailwindcss",
+				"csstools.postcss",
+				"ms-playwright.playwright",
+				"github.vscode-github-actions",
+				"yzhang.markdown-all-in-one",
+				"mtxr.sqltools",
+				"mtxr.sqltools-driver-pg"
+			],
+            "settings": {
+                "sqltools.connections": [
+                    {
+                        "ssh": "Disabled",
+                        "previewLimit": 50,
+                        "server": "${containerEnv:DATABASE_HOST}",
+                        "port": 5432,
+                        "driver": "PostgreSQL",
+                        "name": "local-admin",
+                        "database": "${containerEnv:DATABASE_ADMIN_NAME}",
+                        "username": "${containerEnv:DATABASE_ADMIN_USER}",
+                        "password": "${containerEnv:DATABASE_ADMIN_PASSWORD}"
+                    },
+                    {
+                        "ssh": "Disabled",
+                        "previewLimit": 50,
+                        "server": "${containerEnv:DATABASE_HOST}",
+                        "port": 5432,
+                        "driver": "PostgreSQL",
+                        "name": "local-user",
+                        "database": "${containerEnv:DATABASE_NAME}",
+                        "username": "${containerEnv:DATABASE_USER}",
+                        "password": "${containerEnv:DATABASE_PASSWORD}"
+                    }
+                ]
+            }
         }
     }
 }
