@@ -5,7 +5,7 @@
 - NodeJS 24
 - npm
 
-Preferrably, use the [devcontainer](https://containers.dev/) that is already configured in this repository.
+Preferrably, use the [devcontainer](./.devcontainer/README.md) that is already configured in this repository.
 
 ## Developing
 

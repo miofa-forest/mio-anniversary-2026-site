@@ -1,0 +1,63 @@
+x-parameters:
+  # Database parameters
+  - &database-superuser-dbname "${DATABASE_SUPERUSER_DBNAME:-postgres}"
+  - &database-superuser-username "${DATABASE_SUPERUSER_USERNAME:-postgres}"
+  - &database-superuser-password "${DATABASE_SUPERUSER_PASSWORD:-SamplePassword}"
+  - &database-dbname "${DATABASE_DBNAME:-site}"
+  - &database-username "${DATABASE_USERNAME:-server}"
+  - &database-password "${DATABASE_PASSWORD:-SamplePassword}"
+
+services:
+  devcontainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sleep infinity
+    volumes:
+      - type: bind
+        # Mount parent so we can use the same basename
+        source: ../..
+        target: /workspaces
+      - type: bind
+        source: ${HOME}/.ssh
+        target: /home/node/.ssh
+        read_only: true
+      - type: volume
+        source: vscode-extensions
+        target: /home/node/.vscode-server/extensions
+      - type: volume
+        source: user-cache
+        target: /home/node/.cache
+    environment:
+      DATABASE_HOST: db
+      DATABASE_SUPERUSER_DBNAME: *database-superuser-dbname
+      DATABASE_SUPERUSER_USERNAME: *database-superuser-username
+      DATABASE_SUPERUSER_PASSWORD: *database-superuser-password
+      DATABASE_DBNAME: *database-dbname
+      DATABASE_USERNAME: *database-username
+      DATABASE_PASSWORD: *database-password
+
+  db:
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: postgres-data
+        target: /var/lib/postgresql
+    environment:
+      # Superuser config variables (defined by image)
+      POSTGRES_DB: *database-superuser-dbname
+      POSTGRES_USER: *database-superuser-username
+      POSTGRES_PASSWORD: *database-superuser-password
+      # App user config variables (defined by init script)
+      DATABASE_NAME: *database-dbname
+      DATABASE_USER: *database-username
+      DATABASE_PASSWORD: *database-password
+
+volumes:
+  vscode-extensions:
+  user-cache:
+    name: devcontainer-home-cache
+  postgres-data:

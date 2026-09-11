@@ -1,9 +1,11 @@
 {
 	"name": "mio-anniversary-2026",
-	"build": {
-        "dockerfile": "./Dockerfile",
-        "context": "."
-    },
+	"dockerComposeFile": [
+        "./docker-compose.yaml"
+    ],
+    "service": "devcontainer",
+    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+
 	"features": {
         "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
             "version": "latest",
@@ -12,32 +14,55 @@
         "ghcr.io/guiyomh/features/vim": {}
     },
 
-    "postCreateCommand": "npm ci",
-    "remoteEnv": {
-        "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
+    "containerEnv": {
+        // Useful for making scripts generic
+        "WORKSPACE_FOLDER_HOST": "${localWorkspaceFolder}",
+        "WORKSPACE_FOLDER_CONTAINER": "${containerWorkspaceFolder}"
     },
-    "mounts": [
-        "source=${localEnv:HOME}/.ssh,target=/home/node/.ssh,type=bind,readonly",
-        {
-            "type": "volume",
-            "source": "devcontainer-home-cache",
-            "target": "/home/node/.cache"
-        }
-    ],
+
+    "postCreateCommand": "npm ci",
 
     "customizations": {
         "vscode": {
             "extensions": [
-                "donjayamanne.githistory",
-                "svelte.svelte-vscode",
-                "esbenp.prettier-vscode",
-                "dbaeumer.vscode-eslint",
-                "bradlc.vscode-tailwindcss",
-                "csstools.postcss",
-                "ms-playwright.playwright",
-                "github.vscode-github-actions",
-                "yzhang.markdown-all-in-one"
-            ]
+				"donjayamanne.githistory",
+				"svelte.svelte-vscode",
+				"esbenp.prettier-vscode",
+				"dbaeumer.vscode-eslint",
+				"bradlc.vscode-tailwindcss",
+				"csstools.postcss",
+				"ms-playwright.playwright",
+				"github.vscode-github-actions",
+				"yzhang.markdown-all-in-one",
+				"mtxr.sqltools",
+				"mtxr.sqltools-driver-pg"
+			],
+            "settings": {
+                "sqltools.connections": [
+                    {
+                        "ssh": "Disabled",
+                        "previewLimit": 50,
+                        "server": "${containerEnv:DATABASE_HOST}",
+                        "port": 5432,
+                        "driver": "PostgreSQL",
+                        "name": "local-admin",
+                        "database": "${containerEnv:DATABASE_SUPERUSER_DBNAME}",
+                        "username": "${containerEnv:DATABASE_SUPERUSER_USERNAME}",
+                        "password": "${containerEnv:DATABASE_SUPERUSER_PASSWORD}"
+                    },
+                    {
+                        "ssh": "Disabled",
+                        "previewLimit": 50,
+                        "server": "${containerEnv:DATABASE_HOST}",
+                        "port": 5432,
+                        "driver": "PostgreSQL",
+                        "name": "local-user",
+                        "database": "${containerEnv:DATABASE_DBNAME}",
+                        "username": "${containerEnv:DATABASE_USERNAME}",
+                        "password": "${containerEnv:DATABASE_PASSWORD}"
+                    }
+                ]
+            }
         }
     }
 }
