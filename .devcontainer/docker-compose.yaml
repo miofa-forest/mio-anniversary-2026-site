@@ -1,10 +1,10 @@
 x-parameters:
   # Database parameters
-  - &database-admin-name "${DATABASE_ADMIN_NAME:-postgres}"
-  - &database-admin-user "${DATABASE_ADMIN_USER:-postgres}"
-  - &database-admin-password "${DATABASE_ADMIN_PASSWORD:-SamplePassword}"
-  - &database-name "${DATABASE_NAME:-site}"
-  - &database-user "${DATABASE_USER:-server}"
+  - &database-superuser-dbname "${DATABASE_SUPERUSER_DBNAME:-postgres}"
+  - &database-superuser-username "${DATABASE_SUPERUSER_USERNAME:-postgres}"
+  - &database-superuser-password "${DATABASE_SUPERUSER_PASSWORD:-SamplePassword}"
+  - &database-dbname "${DATABASE_DBNAME:-site}"
+  - &database-username "${DATABASE_USERNAME:-server}"
   - &database-password "${DATABASE_PASSWORD:-SamplePassword}"
 
 services:
@@ -30,11 +30,11 @@ services:
         target: /home/node/.cache
     environment:
       DATABASE_HOST: db
-      DATABASE_ADMIN_NAME: *database-admin-name
-      DATABASE_ADMIN_USER: *database-admin-user
-      DATABASE_ADMIN_PASSWORD: *database-admin-password
-      DATABASE_NAME: *database-name
-      DATABASE_USER: *database-user
+      DATABASE_SUPERUSER_DBNAME: *database-superuser-dbname
+      DATABASE_SUPERUSER_USERNAME: *database-superuser-username
+      DATABASE_SUPERUSER_PASSWORD: *database-superuser-password
+      DATABASE_DBNAME: *database-dbname
+      DATABASE_USERNAME: *database-username
       DATABASE_PASSWORD: *database-password
 
   db:
@@ -47,11 +47,13 @@ services:
         source: postgres-data
         target: /var/lib/postgresql
     environment:
-      POSTGRES_DB: *database-admin-name
-      POSTGRES_USER: *database-admin-user
-      POSTGRES_PASSWORD: *database-admin-password
-      DATABASE_NAME: *database-name
-      DATABASE_USER: *database-user
+      # Superuser config variables (defined by image)
+      POSTGRES_DB: *database-superuser-dbname
+      POSTGRES_USER: *database-superuser-username
+      POSTGRES_PASSWORD: *database-superuser-password
+      # App user config variables (defined by init script)
+      DATABASE_NAME: *database-dbname
+      DATABASE_USER: *database-username
       DATABASE_PASSWORD: *database-password
 
 volumes:

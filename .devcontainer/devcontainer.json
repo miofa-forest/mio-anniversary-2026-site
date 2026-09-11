@@ -46,9 +46,9 @@
                         "port": 5432,
                         "driver": "PostgreSQL",
                         "name": "local-admin",
-                        "database": "${containerEnv:DATABASE_ADMIN_NAME}",
-                        "username": "${containerEnv:DATABASE_ADMIN_USER}",
-                        "password": "${containerEnv:DATABASE_ADMIN_PASSWORD}"
+                        "database": "${containerEnv:DATABASE_SUPERUSER_DBNAME}",
+                        "username": "${containerEnv:DATABASE_SUPERUSER_USERNAME}",
+                        "password": "${containerEnv:DATABASE_SUPERUSER_PASSWORD}"
                     },
                     {
                         "ssh": "Disabled",
@@ -57,8 +57,8 @@
                         "port": 5432,
                         "driver": "PostgreSQL",
                         "name": "local-user",
-                        "database": "${containerEnv:DATABASE_NAME}",
-                        "username": "${containerEnv:DATABASE_USER}",
+                        "database": "${containerEnv:DATABASE_DBNAME}",
+                        "username": "${containerEnv:DATABASE_USERNAME}",
                         "password": "${containerEnv:DATABASE_PASSWORD}"
                     }
                 ]
