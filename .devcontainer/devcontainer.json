@@ -4,7 +4,7 @@
         "./docker-compose.yaml"
     ],
     "service": "devcontainer",
-    "workspaceFolder": "/workspace",
+    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
 
 	"features": {
         "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
@@ -15,6 +15,7 @@
     },
 
     "containerEnv": {
+        // Useful for making scripts generic
         "WORKSPACE_FOLDER_HOST": "${localWorkspaceFolder}",
         "WORKSPACE_FOLDER_CONTAINER": "${containerWorkspaceFolder}"
     },

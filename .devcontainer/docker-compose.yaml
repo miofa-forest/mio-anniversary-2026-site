@@ -15,8 +15,9 @@ services:
     command: sleep infinity
     volumes:
       - type: bind
-        source: ..
-        target: /workspace
+        # Mount parent so we can use the same basename
+        source: ../..
+        target: /workspaces
       - type: bind
         source: ${HOME}/.ssh
         target: /home/node/.ssh
