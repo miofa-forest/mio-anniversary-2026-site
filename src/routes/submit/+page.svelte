@@ -1,19 +1,20 @@
 <script lang="ts">
-  let displayName = '';
-  let avatarInput: HTMLInputElement;
-  let avatarPreviewUrl: string | null = null;
+  let displayName = $state('');
+  let avatarInput = $state<HTMLInputElement | null>(null);
+  let avatarPreviewUrl = $state<string | null>(null);
   
-  let country = '';
-  let foodInput: HTMLInputElement;
-  let foodPreviewUrl: string | null = null;
+  let country = $state('');
+  let foodInput = $state<HTMLInputElement | null>(null);
+  let foodPreviewUrl = $state<string | null>(null);
   
-  let username = '';
-  let password = '';
-  let contact = '';
-  let message = '';
+  let username = $state('');
+  let password = $state('');
+  let contact = $state('');
+  let message = $state('');
   
-  let feedbackMessage = '';
-  let isSubmitting = false;
+  let feedbackMessage = $state('');
+  let isSuccess = $state(false);
+  let isSubmitting = $state(false);
 
   const defaultAvatars = [
     '/user/m1.jpg',
@@ -38,10 +39,11 @@
     }
   }
 
-  async function handleSubmit(event: Event) {
+  async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
     isSubmitting = true;
     feedbackMessage = 'Submitting your entry...';
+    isSuccess = false;
 
     // Fallbacks
     const finalDisplayName = displayName.trim() || 'Anonymous Miofa';
@@ -54,8 +56,6 @@
     formData.append('password', password);
     formData.append('contact', contact.trim());
     formData.append('message', finalMessage);
-    formData.append('event', '8th_anniversary');
-    formData.append('category', 'album_entry');
 
     if (avatarInput?.files?.[0]) {
       formData.append('avatar', avatarInput.files[0]);
@@ -77,6 +77,7 @@
       const result = await res.json();
 
       if (result.success) {
+        isSuccess = true;
         feedbackMessage = `✓ Entry received for [${finalDisplayName}] from ${country}! Thank you for contributing to the album!`;
         displayName = '';
         country = '';
@@ -89,10 +90,12 @@
         if (avatarInput) avatarInput.value = '';
         if (foodInput) foodInput.value = '';
       } else {
-        feedbackMessage = '❌ Submission failed. Please verify the form inputs.';
+        isSuccess = false;
+        feedbackMessage = `❌ Submission failed: ${result.error || 'Please verify the form inputs.'}`;
       }
     } catch {
-      feedbackMessage = '❌ Server connection error.';
+      isSuccess = false;
+      feedbackMessage = '❌ Server connection error. Please try again.';
     } finally {
       isSubmitting = false;
     }
@@ -101,6 +104,9 @@
 
 <main class="page-container">
   <section class="info-section">
+    <div class="breadcrumb-nav">
+      <a href="/" class="back-link">&larr; Back to Anniversary Album</a>
+    </div>
     <span class="date">8TH ANNIVERSARY &bull; COMMEMORATIVE ALBUM</span>
     <h2>Submit to the Travel & Food Collection</h2>
     <p>
@@ -108,7 +114,7 @@
       commemorative book.
     </p>
 
-    <form class="submission-form" on:submit={handleSubmit}>
+    <form class="submission-form" onsubmit={handleSubmit}>
       
       <!-- 1. NAME (OPTIONAL) -->
       <div class="form-group">
@@ -133,7 +139,7 @@
           id="avatar-input"
           accept="image/*"
           bind:this={avatarInput}
-          on:change={handleAvatarChange}
+          onchange={handleAvatarChange}
         />
         {#if avatarPreviewUrl}
           <div class="preview-box avatar-preview">
@@ -162,7 +168,7 @@
           id="food-input"
           accept="image/*"
           bind:this={foodInput}
-          on:change={handleFoodChange}
+          onchange={handleFoodChange}
           required
         />
         {#if foodPreviewUrl}
@@ -231,13 +237,28 @@
       </button>
 
       {#if feedbackMessage}
-        <p class="feedback-msg">{feedbackMessage}</p>
+        <p class="feedback-msg" class:success-msg={isSuccess} class:error-msg={!isSuccess}>
+          {feedbackMessage}
+        </p>
       {/if}
     </form>
   </section>
 </main>
 
 <style>
+  .breadcrumb-nav {
+    margin-bottom: 20px;
+  }
+  .back-link {
+    color: #e2e8f0;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: color 0.2s;
+  }
+  .back-link:hover {
+    color: #ffd700;
+  }
   .required { color: #c92a42; }
   .optional { font-size: 0.8rem; color: #94a3b8; font-weight: normal; }
 
@@ -267,5 +288,29 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  .preview-box img {
+    max-width: 200px;
+    border-radius: 8px;
+    margin-top: 8px;
+  }
+
+  .feedback-msg {
+    margin-top: 18px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  .success-msg {
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    color: #86efac;
+  }
+  .error-msg {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
   }
 </style>

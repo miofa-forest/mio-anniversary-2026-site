@@ -28,3 +28,8 @@ test-results
 # Automation Scripts
 auto_save.py
 auto_pull.py
+
+# Local persistent data and user uploads
+data/
+static/uploads/*
+!static/uploads/.gitkeep

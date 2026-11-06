@@ -1,25 +1,28 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
 
-  let currentSpread = $state(0);
-  let mode = $state<'single' | 'double'>('single');
-  let albumElement: HTMLElement | null = null;
-  let totalPages = $state(6); // Cover (0), 4 content leaves (1-4), Back cover (5)
-
-  // Selected photo for the polaroid / message popup
-  let selectedEntry = $state<{
-    id: number;
+  interface AlbumEntry {
+    id: string | number;
     img: string;
     caption: string;
     author: string;
     country: string;
     avatar: string;
     message: string;
-  } | null>(null);
+  }
 
-  const albumPages = [
+  let currentSpread = $state(0);
+  let mode = $state<'single' | 'double'>('single');
+  let albumElement: HTMLElement | null = null;
+  let totalPages = $state(6); // Will be dynamically updated based on leaves count
+
+  // Selected photo for the polaroid / message popup
+  let selectedEntry = $state<AlbumEntry | null>(null);
+
+  // Default entries to guarantee instant rendering even before API responds
+  let albumPages = $state<AlbumEntry[]>([
     {
-      id: 1,
+      id: 'demo-1',
       img: '/album assets/photo1.png',
       caption: '#1',
       author: 'Miofa1',
@@ -28,7 +31,7 @@
       message: 'Happy 8th Anniversary Mio mama! Hope you enjoy this hot bowl of ramen!'
     },
     {
-      id: 2,
+      id: 'demo-2',
       img: '/album assets/photo1.png',
       caption: '#2',
       author: 'Anonymous Miofa',
@@ -37,7 +40,7 @@
       message: 'Warm forest stew from our province! Thank you for 8 wonderful years of smiles.'
     },
     {
-      id: 3,
+      id: 'demo-3',
       img: '/album assets/photo1.png',
       caption: '#3',
       author: 'KuroTae',
@@ -46,7 +49,7 @@
       message: 'Fresh homemade pancakes! Best paired with your morning streams.'
     },
     {
-      id: 4,
+      id: 'demo-4',
       img: '/album assets/photo1.png',
       caption: '#4',
       author: 'Miofa_Global',
@@ -55,7 +58,7 @@
       message: 'Spicy satay skewers! Sending warm wishes from overseas!'
     },
     {
-      id: 5,
+      id: 'demo-5',
       img: '/album assets/photo1.png',
       caption: '#5',
       author: 'TaigaFan',
@@ -64,7 +67,7 @@
       message: 'Traditional maple pastries to celebrate your milestone.'
     },
     {
-      id: 6,
+      id: 'demo-6',
       img: '/album assets/photo1.png',
       caption: '#6',
       author: 'Sparky',
@@ -73,7 +76,7 @@
       message: 'Fresh bakery bread and sausages! Always cheering for you, Mio!'
     },
     {
-      id: 7,
+      id: 'demo-7',
       img: '/album assets/photo1.png',
       caption: '#7',
       author: 'NightWolf',
@@ -82,7 +85,7 @@
       message: 'Sweet bubble tea and street snacks for your anniversary concert!'
     },
     {
-      id: 8,
+      id: 'demo-8',
       img: '/album assets/photo1.png',
       caption: '#8',
       author: 'OuroMio',
@@ -90,7 +93,20 @@
       avatar: '/user/m1.jpg',
       message: 'Afternoon forest tea blend. Here is to many more anniversaries ahead!'
     }
-  ];
+  ]);
+
+  // Dynamically group album entries into 2-sided book leaves
+  let leaves = $derived.by(() => {
+    const pairs: { leafIndex: number; front: AlbumEntry; back: AlbumEntry | null }[] = [];
+    for (let i = 0; i < albumPages.length; i += 2) {
+      pairs.push({
+        leafIndex: Math.floor(i / 2) + 1,
+        front: albumPages[i],
+        back: i + 1 < albumPages.length ? albumPages[i + 1] : null
+      });
+    }
+    return pairs;
+  });
 
   function updatePageZIndexes() {
     if (!albumElement) return;
@@ -126,7 +142,7 @@
     mode = newMode;
   }
 
-  function openDetailModal(entry: typeof selectedEntry, event: MouseEvent) {
+  function openDetailModal(entry: AlbumEntry, event: MouseEvent) {
     event.stopPropagation();
     selectedEntry = entry;
   }
@@ -146,9 +162,27 @@
     }
   }
 
-  onMount(async () => {
-    await tick();
-    updatePageZIndexes();
+  onMount(() => {
+    // Initial z-index alignment
+    tick().then(() => {
+      updatePageZIndexes();
+    });
+
+    // Fetch live approved submissions from backend API
+    fetch('/api/submissions')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.submissions) && data.submissions.length > 0) {
+          albumPages = data.submissions;
+          tick().then(() => {
+            updatePageZIndexes();
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load live submissions, staying on initial entries:', err);
+      });
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   });
@@ -210,7 +244,7 @@
         {:else if currentSpread >= totalPages - 1}
           Back Cover
         {:else}
-          Page {currentSpread} of {totalPages - 2}
+          Page {currentSpread} of {Math.max(1, totalPages - 2)}
         {/if}
       </span>
       <button 
@@ -256,189 +290,63 @@
         </div>
       </div>
 
-      <!-- LEAF 1: Front = Photo 1 (#1), Back = Photo 2 (#2) -->
-      <div class="page">
-        <div class="page-face front">
-          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
-          <div class="page-content">
-            <div 
-              class="img-wrapper zoomable-wrapper"
-              onclick={(e) => openDetailModal(albumPages[0], e)}
-              role="button"
-              tabindex="0"
-              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[0], e as any)}
-              aria-label="Inspect dish and message"
-            >
-              <img src={albumPages[0].img} alt="Dish #1" />
-              <div class="photo-card-tag">
-                <span>{albumPages[0].author} &bull; {albumPages[0].country}</span>
+      <!-- DYNAMIC CONTENT LEAVES -->
+      {#each leaves as leaf (leaf.leafIndex)}
+        <div class="page">
+          <!-- FRONT FACE -->
+          <div class="page-face front">
+            <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
+            <div class="page-content">
+              <div 
+                class="img-wrapper zoomable-wrapper"
+                onclick={(e) => openDetailModal(leaf.front, e)}
+                role="button"
+                tabindex="0"
+                onkeydown={(e) => e.key === 'Enter' && openDetailModal(leaf.front, e as any)}
+                aria-label="Inspect dish and message"
+              >
+                <img src={leaf.front.img} alt="Dish {leaf.front.caption}" />
+                <div class="photo-card-tag">
+                  <span>{leaf.front.author} &bull; {leaf.front.country}</span>
+                </div>
               </div>
+              <p class="caption">{leaf.front.caption}</p>
             </div>
-            <p class="caption">#1</p>
+            <div class="spine-shadow"></div>
+            <div class="curl-shadow"></div>
           </div>
-          <div class="spine-shadow"></div>
-          <div class="curl-shadow"></div>
-        </div>
-        <div class="page-face back">
-          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
-          <div class="page-content">
-            <div 
-              class="img-wrapper zoomable-wrapper"
-              onclick={(e) => openDetailModal(albumPages[1], e)}
-              role="button"
-              tabindex="0"
-              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[1], e as any)}
-              aria-label="Inspect dish and message"
-            >
-              <img src={albumPages[1].img} alt="Dish #2" />
-              <div class="photo-card-tag">
-                <span>{albumPages[1].author} &bull; {albumPages[1].country}</span>
-              </div>
-            </div>
-            <p class="caption">#2</p>
-          </div>
-          <div class="spine-shadow"></div>
-          <div class="curl-shadow"></div>
-        </div>
-      </div>
 
-      <!-- LEAF 2: Front = Photo 3 (#3), Back = Photo 4 (#4) -->
-      <div class="page">
-        <div class="page-face front">
-          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
-          <div class="page-content">
-            <div 
-              class="img-wrapper zoomable-wrapper"
-              onclick={(e) => openDetailModal(albumPages[2], e)}
-              role="button"
-              tabindex="0"
-              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[2], e as any)}
-              aria-label="Inspect dish and message"
-            >
-              <img src={albumPages[2].img} alt="Dish #3" />
-              <div class="photo-card-tag">
-                <span>{albumPages[2].author} &bull; {albumPages[2].country}</span>
-              </div>
+          <!-- BACK FACE -->
+          <div class="page-face back">
+            <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
+            <div class="page-content">
+              {#if leaf.back}
+                <div 
+                  class="img-wrapper zoomable-wrapper"
+                  onclick={(e) => openDetailModal(leaf.back!, e)}
+                  role="button"
+                  tabindex="0"
+                  onkeydown={(e) => e.key === 'Enter' && openDetailModal(leaf.back!, e as any)}
+                  aria-label="Inspect dish and message"
+                >
+                  <img src={leaf.back.img} alt="Dish {leaf.back.caption}" />
+                  <div class="photo-card-tag">
+                    <span>{leaf.back.author} &bull; {leaf.back.country}</span>
+                  </div>
+                </div>
+                <p class="caption">{leaf.back.caption}</p>
+              {:else}
+                <div class="empty-leaf-content">
+                  <p class="empty-prompt">🌟 Submit your regional dish to fill this page!</p>
+                  <a href="/submit" class="submit-mini-btn" onclick={(e) => e.stopPropagation()}>+ Add Food Photo</a>
+                </div>
+              {/if}
             </div>
-            <p class="caption">#3</p>
+            <div class="spine-shadow"></div>
+            <div class="curl-shadow"></div>
           </div>
-          <div class="spine-shadow"></div>
-          <div class="curl-shadow"></div>
         </div>
-        <div class="page-face back">
-          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
-          <div class="page-content">
-            <div 
-              class="img-wrapper zoomable-wrapper"
-              onclick={(e) => openDetailModal(albumPages[3], e)}
-              role="button"
-              tabindex="0"
-              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[3], e as any)}
-              aria-label="Inspect dish and message"
-            >
-              <img src={albumPages[3].img} alt="Dish #4" />
-              <div class="photo-card-tag">
-                <span>{albumPages[3].author} &bull; {albumPages[3].country}</span>
-              </div>
-            </div>
-            <p class="caption">#4</p>
-          </div>
-          <div class="spine-shadow"></div>
-          <div class="curl-shadow"></div>
-        </div>
-      </div>
-
-      <!-- LEAF 3: Front = Photo 5 (#5), Back = Photo 6 (#6) -->
-      <div class="page">
-        <div class="page-face front">
-          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
-          <div class="page-content">
-            <div 
-              class="img-wrapper zoomable-wrapper"
-              onclick={(e) => openDetailModal(albumPages[4], e)}
-              role="button"
-              tabindex="0"
-              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[4], e as any)}
-              aria-label="Inspect dish and message"
-            >
-              <img src={albumPages[4].img} alt="Dish #5" />
-              <div class="photo-card-tag">
-                <span>{albumPages[4].author} &bull; {albumPages[4].country}</span>
-              </div>
-            </div>
-            <p class="caption">#5</p>
-          </div>
-          <div class="spine-shadow"></div>
-          <div class="curl-shadow"></div>
-        </div>
-        <div class="page-face back">
-          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
-          <div class="page-content">
-            <div 
-              class="img-wrapper zoomable-wrapper"
-              onclick={(e) => openDetailModal(albumPages[5], e)}
-              role="button"
-              tabindex="0"
-              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[5], e as any)}
-              aria-label="Inspect dish and message"
-            >
-              <img src={albumPages[5].img} alt="Dish #6" />
-              <div class="photo-card-tag">
-                <span>{albumPages[5].author} &bull; {albumPages[5].country}</span>
-              </div>
-            </div>
-            <p class="caption">#6</p>
-          </div>
-          <div class="spine-shadow"></div>
-          <div class="curl-shadow"></div>
-        </div>
-      </div>
-
-      <!-- LEAF 4: Front = Photo 7 (#7), Back = Photo 8 (#8) -->
-      <div class="page">
-        <div class="page-face front">
-          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
-          <div class="page-content">
-            <div 
-              class="img-wrapper zoomable-wrapper"
-              onclick={(e) => openDetailModal(albumPages[6], e)}
-              role="button"
-              tabindex="0"
-              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[6], e as any)}
-              aria-label="Inspect dish and message"
-            >
-              <img src={albumPages[6].img} alt="Dish #7" />
-              <div class="photo-card-tag">
-                <span>{albumPages[6].author} &bull; {albumPages[6].country}</span>
-              </div>
-            </div>
-            <p class="caption">#7</p>
-          </div>
-          <div class="spine-shadow"></div>
-          <div class="curl-shadow"></div>
-        </div>
-        <div class="page-face back">
-          <img class="page-bg" src="/album assets/inside bg.png" alt="Inside BG" />
-          <div class="page-content">
-            <div 
-              class="img-wrapper zoomable-wrapper"
-              onclick={(e) => openDetailModal(albumPages[7], e)}
-              role="button"
-              tabindex="0"
-              onkeydown={(e) => e.key === 'Enter' && openDetailModal(albumPages[7], e as any)}
-              aria-label="Inspect dish and message"
-            >
-              <img src={albumPages[7].img} alt="Dish #8" />
-              <div class="photo-card-tag">
-                <span>{albumPages[7].author} &bull; {albumPages[7].country}</span>
-              </div>
-            </div>
-            <p class="caption">#8</p>
-          </div>
-          <div class="spine-shadow"></div>
-          <div class="curl-shadow"></div>
-        </div>
-      </div>
+      {/each}
 
       <!-- BACK COVER -->
       <div class="page cover">
@@ -467,7 +375,10 @@
       <h3>Want your local dish featured in the book?</h3>
       <p>Submit your food photo, region, and optional anniversary message.</p>
     </div>
-    <a href="/submit" class="primary-btn">Go to Submission Page &rarr;</a>
+    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+      <a href="/submit" class="primary-btn">Go to Submission Page &rarr;</a>
+      <a href="/moderator" class="staff-link">Staff Moderation Panel &rarr;</a>
+    </div>
   </section>
 
   <!-- POLAROID BACK-OF-CARD MODAL -->
@@ -680,7 +591,6 @@
     overflow: hidden;
   }
 
-  /* When page is normal (unflipped), front face is active, back face ignores pointer events */
   .page:not(.flipped) .page-face.front {
     pointer-events: auto;
   }
@@ -688,7 +598,6 @@
     pointer-events: none;
   }
 
-  /* When page is flipped, back face is active, front face ignores pointer events */
   .page.flipped .page-face.front {
     pointer-events: none;
   }
@@ -798,92 +707,185 @@
     font-weight: 700;
     font-size: 1.1rem;
     letter-spacing: 0.08em;
-    text-align: center;
   }
 
-  .badge {
-    background: #f1c40f;
-    color: #000;
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: bold;
-    margin-bottom: 10px;
+  .empty-leaf-content {
+    text-align: center;
+    padding: 20px;
+  }
+  .empty-prompt {
+    color: #ffd700;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+  }
+  .submit-mini-btn {
+    display: inline-block;
+    padding: 8px 18px;
+    background: #c92a42;
+    color: #fff;
+    text-decoration: none;
+    font-weight: 700;
+    border-radius: 20px;
+    font-size: 0.85rem;
   }
 
   .spine-shadow {
     position: absolute;
     top: 0;
-    left: 0;
-    width: 35px;
-    height: 100%;
-    background: linear-gradient(to right, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.08) 40%, rgba(0,0,0,0) 100%);
+    bottom: 0;
+    width: 25px;
     pointer-events: none;
-    z-index: 5;
+    z-index: 10;
   }
 
-  .back .spine-shadow {
-    left: auto;
+  .page-face.front .spine-shadow {
+    left: 0;
+    background: linear-gradient(to right, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 100%);
+  }
+
+  .page-face.back .spine-shadow {
     right: 0;
-    background: linear-gradient(to left, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.08) 40%, rgba(0,0,0,0) 100%);
+    background: linear-gradient(to left, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 100%);
   }
 
   .curl-shadow {
     position: absolute;
     top: 0;
-    right: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(to left, rgba(0,0,0,0.15) 0%, rgba(255,255,255,0.1) 15%, rgba(0,0,0,0) 100%);
+    bottom: 0;
+    width: 30px;
     pointer-events: none;
-    z-index: 6;
+    z-index: 10;
   }
 
-  /* MODAL */
+  .page-face.front .curl-shadow {
+    right: 0;
+    background: linear-gradient(to left, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0) 100%);
+  }
+
+  .page-face.back .curl-shadow {
+    left: 0;
+    background: linear-gradient(to right, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0) 100%);
+  }
+
+  .badge {
+    background: #c92a42;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 4px 10px;
+    border-radius: 4px;
+  }
+
+  /* ACTION BANNER */
+  .action-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 24px 30px;
+    border-radius: 12px;
+    backdrop-filter: blur(8px);
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .action-banner h3 {
+    margin: 0 0 6px 0;
+    color: #fff;
+    font-size: 1.25rem;
+  }
+  .action-banner p {
+    margin: 0;
+    color: #94a3b8;
+    font-size: 0.9rem;
+  }
+
+  .primary-btn {
+    display: inline-block;
+    background: #c92a42;
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 700;
+    transition: background 0.2s ease, transform 0.1s ease;
+    white-space: nowrap;
+    border: none;
+    cursor: pointer;
+  }
+  .primary-btn:hover {
+    background: #a82035;
+    transform: translateY(-1px);
+  }
+
+  .staff-link {
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 600;
+    padding: 10px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+  .staff-link:hover {
+    color: #ffd700;
+    border-color: #ffd700;
+  }
+
+  /* POLAROID MODAL */
   .modal-backdrop {
     position: fixed;
-    inset: 0;
-    background: rgba(10, 10, 15, 0.88);
-    backdrop-filter: blur(8px);
-    z-index: 3000;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(5px);
     display: flex;
     justify-content: center;
     align-items: center;
+    z-index: 9999;
     padding: 20px;
   }
 
   .postcard-container {
     position: relative;
-    background: #fcfbf9;
-    color: #2b2b2b;
-    width: 100%;
-    max-width: 840px;
-    min-height: 450px;
-    border-radius: 12px;
     display: flex;
+    width: 100%;
+    max-width: 860px;
+    background: #fff;
+    border-radius: 6px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
     overflow: hidden;
+    animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
   }
 
   .close-btn {
     position: absolute;
-    top: 12px;
-    right: 18px;
+    top: 10px;
+    right: 15px;
     font-size: 2rem;
-    line-height: 1;
     background: none;
     border: none;
-    color: #666;
+    color: #444;
     cursor: pointer;
+    line-height: 1;
     z-index: 10;
   }
 
-  .close-btn:hover { color: #c92a42; }
-
   .postcard-front {
-    flex: 1.1;
-    padding: 30px;
-    background: #f3f0e8;
+    flex: 1;
+    padding: 25px;
+    background: #f7f5f0;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -891,11 +893,10 @@
 
   .postcard-photo-frame {
     width: 100%;
-    height: 310px;
-    background: #fff;
-    padding: 10px;
+    height: 380px;
+    background: #111;
+    border: 8px solid #fff;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-    border-radius: 4px;
     display: flex;
     justify-content: center;
     align-items: center;

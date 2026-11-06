@@ -4,5 +4,6 @@
 	},
     "svelte.enable-ts-plugin": true,
 	"svelte.plugin.svelte.defaultScriptLanguage": "ts",
-	"git.rebaseWhenSync": true
+	"git.rebaseWhenSync": true,
+	"liveServer.settings.port": 5501
 }
