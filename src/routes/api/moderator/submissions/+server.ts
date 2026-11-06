@@ -97,9 +97,10 @@ export const PATCH: RequestHandler = async ({ request }) => {
 			success: true,
 			message: `Submission ${id} status updated to ${status}`
 		});
-	} catch (err: any) {
+	} catch (err: unknown) {
 		console.error('Moderator status update error:', err);
-		return json({ success: false, error: err?.message || 'Failed to update status' }, { status: 500 });
+		const errorMsg = err instanceof Error ? err.message : 'Failed to update status';
+		return json({ success: false, error: errorMsg }, { status: 500 });
 	}
 };
 
@@ -141,8 +142,9 @@ export const DELETE: RequestHandler = async ({ request }) => {
 			success: true,
 			message: `Submission ${id} deleted successfully`
 		});
-	} catch (err: any) {
+	} catch (err: unknown) {
 		console.error('Moderator delete error:', err);
-		return json({ success: false, error: err?.message || 'Failed to delete submission' }, { status: 500 });
+		const errorMsg = err instanceof Error ? err.message : 'Failed to delete submission';
+		return json({ success: false, error: errorMsg }, { status: 500 });
 	}
 };

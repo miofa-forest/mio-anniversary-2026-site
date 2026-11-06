@@ -53,8 +53,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		const password = (formData.get('password') as string)?.trim();
 		const contact = (formData.get('contact') as string)?.trim();
 		const message =
-			(formData.get('message') as string)?.trim() ||
-			'Happy 8th Anniversary, Mio mama! 🌲✨';
+			(formData.get('message') as string)?.trim() || 'Happy 8th Anniversary, Mio mama! 🌲✨';
 
 		const foodImageFile = formData.get('foodImage') as File | null;
 		const avatarFile = formData.get('avatar') as File | null;
@@ -136,12 +135,14 @@ export const POST: RequestHandler = async ({ request }) => {
 			token,
 			message: `Submission successfully received! Entry ID: ${id}`
 		});
-	} catch (err: any) {
+	} catch (err: unknown) {
 		console.error('Submission handling error:', err);
+		const errorMsg =
+			err instanceof Error ? err.message : 'Internal server error while processing submission';
 		return json(
 			{
 				success: false,
-				error: err?.message || 'Internal server error while processing submission'
+				error: errorMsg
 			},
 			{ status: 500 }
 		);
