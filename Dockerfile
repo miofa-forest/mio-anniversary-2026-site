@@ -2,7 +2,7 @@
 ARG BUILDKIT_SBOM_SCAN_CONTEXT=true
 ARG BUILDKIT_SBOM_SCAN_STAGE=true
 
-FROM node:24.19-trixie AS build
+FROM node:26.8-trixie AS build
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ RUN mkdir ./sbom
 RUN npm install --global @cyclonedx/cyclonedx-npm
 RUN cyclonedx-npm --output-format JSON --output-file "./sbom/app.cdx.json" --validate --mc-type application 
 
-FROM node:24.19-trixie AS release
+FROM node:26.8-trixie AS release
 
 WORKDIR /app
 

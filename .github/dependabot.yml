@@ -10,6 +10,14 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      - dependency-name: "@types/node"
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    patterns:
+      - "@types/node"
+    multi-ecosystem-group: "node"
 
   - package-ecosystem: "docker"
     directories:
@@ -17,6 +25,18 @@ updates:
       - "/.devcontainer"
     schedule:
       interval: "weekly"
+    ignore:
+      - dependency-name: "node"
+      - dependency-name: "devcontainers/typescript-node"
+
+  - package-ecosystem: "docker"
+    directories:
+      - "/"
+      - "/.devcontainer"
+    patterns:
+      - "node"
+      - "devcontainers/typescript-node"
+    multi-ecosystem-group: "node"
   
   - package-ecosystem: "devcontainers"
     directory: "/"
@@ -25,5 +45,10 @@ updates:
 
   - package-ecosystem: "github-actions"
     directory: "/"
+    schedule:
+      interval: "weekly"
+
+multi-ecosystem-groups:
+  node:
     schedule:
       interval: "weekly"
