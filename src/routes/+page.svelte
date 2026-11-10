@@ -185,6 +185,42 @@
 		}
 	}
 
+	function handleAlbumClick(e: MouseEvent) {
+		const target = e.target as HTMLElement;
+		if (
+			target.closest('button') ||
+			target.closest('a') ||
+			target.closest('.zoomable-wrapper') ||
+			target.closest('.submit-mini-btn')
+		) {
+			return;
+		}
+
+		if (!albumElement) {
+			flipNext();
+			return;
+		}
+
+		const rect = albumElement.getBoundingClientRect();
+		const clickX = e.clientX - rect.left;
+		const width = rect.width;
+
+		// Closed on front cover (page 0): click opens next
+		if (currentSpread === 0) {
+			flipNext();
+		} else if (currentSpread >= totalPages - 1) {
+			// Closed on back cover: click flips back
+			flipPrev();
+		} else {
+			// Open spread: left side taps to previous, right side taps to next
+			if (clickX < width / 2) {
+				flipPrev();
+			} else {
+				flipNext();
+			}
+		}
+	}
+
 	function setMode(newMode: 'single' | 'double') {
 		mode = newMode;
 	}
@@ -290,32 +326,6 @@
 		</div>
 	</div>
 
-	<!-- REGION FILTER BAR -->
-	{#if availableRegions.length > 2}
-		<div class="region-filter-bar">
-			<span class="region-filter-label">Browse by Region:</span>
-			<div class="region-pills">
-				{#each availableRegions as region (region)}
-					<button
-						type="button"
-						class="region-pill-btn"
-						class:active={selectedRegion === region}
-						onclick={() => selectRegion(region)}
-					>
-						{region}
-						<span class="pill-count">
-							{#if region === 'All'}
-								{albumPages.length}
-							{:else}
-								{albumPages.filter((p) => p.country === region).length}
-							{/if}
-						</span>
-					</button>
-				{/each}
-			</div>
-		</div>
-	{/if}
-
 	<!-- 3D BOOK STAGE -->
 	<div class="album-stage" ontouchstart={handleTouchStart} ontouchend={handleTouchEnd}>
 		<div
@@ -323,7 +333,7 @@
 			class="album mode-{mode}"
 			class:closed={currentSpread === 0 || currentSpread >= totalPages - 1}
 			class:open={currentSpread > 0 && currentSpread < totalPages - 1}
-			onclick={flipNext}
+			onclick={handleAlbumClick}
 			role="region"
 			aria-label="3D Interactive Album"
 		>
@@ -429,6 +439,32 @@
 			</div>
 		</div>
 	</div>
+
+	<!-- REGION FILTER BAR (BELOW ALBUM) -->
+	{#if availableRegions.length > 2}
+		<div class="region-filter-bar">
+			<span class="region-filter-label">Browse by Region:</span>
+			<div class="region-pills">
+				{#each availableRegions as region (region)}
+					<button
+						type="button"
+						class="region-pill-btn"
+						class:active={selectedRegion === region}
+						onclick={() => selectRegion(region)}
+					>
+						{region}
+						<span class="pill-count">
+							{#if region === 'All'}
+								{albumPages.length}
+							{:else}
+								{albumPages.filter((p) => p.country === region).length}
+							{/if}
+						</span>
+					</button>
+				{/each}
+			</div>
+		</div>
+	{/if}
 
 	<!-- 3. SUBMISSION CALL TO ACTION LINK -->
 	<section class="action-banner" style="margin-top: 50px; width: 100%; max-width: 900px;">
@@ -561,9 +597,10 @@
 		justify-content: center;
 		gap: 12px;
 		flex-wrap: wrap;
-		margin: 15px auto 5px;
+		margin: 25px auto 10px;
 		max-width: 900px;
 		padding: 0 15px;
+		z-index: 10;
 	}
 
 	.region-filter-label {
