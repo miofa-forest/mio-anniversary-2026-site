@@ -1,16 +1,25 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getStore, SubmissionStatus } from '$lib/submissions';
+import { isModeratorAuthenticated } from '$lib/server/auth';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
 /**
  * GET /api/moderator/submissions
  * Retrieves submissions for the moderator control panel with counts and optional filtering.
+ * Protected: Requires valid moderator session or x-moderator-key header.
  */
-export const GET: RequestHandler = async ({ url }) => {
-	const statusParam = url.searchParams.get('status')?.toUpperCase();
-	const searchQuery = url.searchParams.get('search')?.toLowerCase().trim() || '';
+export const GET: RequestHandler = async (event) => {
+	if (!isModeratorAuthenticated(event)) {
+		return json(
+			{ success: false, error: 'Unauthorized: Moderator authentication required' },
+			{ status: 401 }
+		);
+	}
+
+	const statusParam = event.url.searchParams.get('status')?.toUpperCase();
+	const searchQuery = event.url.searchParams.get('search')?.toLowerCase().trim() || '';
 
 	const all = await getStore().getSubmissions();
 
@@ -77,10 +86,18 @@ export const GET: RequestHandler = async ({ url }) => {
 /**
  * PATCH /api/moderator/submissions
  * Updates the status of a submission (e.g. APPROVED or DENIED).
+ * Protected: Requires valid moderator session or x-moderator-key header.
  */
-export const PATCH: RequestHandler = async ({ request }) => {
+export const PATCH: RequestHandler = async (event) => {
+	if (!isModeratorAuthenticated(event)) {
+		return json(
+			{ success: false, error: 'Unauthorized: Moderator authentication required' },
+			{ status: 401 }
+		);
+	}
+
 	try {
-		const body = await request.json();
+		const body = await event.request.json();
 		const { id, status } = body;
 
 		if (!id || !status) {
@@ -107,10 +124,18 @@ export const PATCH: RequestHandler = async ({ request }) => {
 /**
  * DELETE /api/moderator/submissions
  * Deletes a submission and cleans up uploaded files if present.
+ * Protected: Requires valid moderator session or x-moderator-key header.
  */
-export const DELETE: RequestHandler = async ({ request }) => {
+export const DELETE: RequestHandler = async (event) => {
+	if (!isModeratorAuthenticated(event)) {
+		return json(
+			{ success: false, error: 'Unauthorized: Moderator authentication required' },
+			{ status: 401 }
+		);
+	}
+
 	try {
-		const body = await request.json();
+		const body = await event.request.json();
 		const { id } = body;
 
 		if (!id) {

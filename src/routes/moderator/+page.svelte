@@ -29,11 +29,20 @@
 		denied: number;
 	}
 
+	// Authentication state
+	let authChecking = $state(true);
+	let isAuthenticated = $state(false);
+	let enteredKey = $state('');
+	let authError = $state('');
+	let isLoggingIn = $state(false);
+	let showPassword = $state(false);
+
+	// Dashboard state
 	let submissions = $state<SubmissionItem[]>([]);
 	let counts = $state<Counts>({ total: 0, pending: 0, approved: 0, denied: 0 });
 	let currentFilter = $state<'ALL' | 'PENDING' | 'APPROVED' | 'DENIED'>('ALL');
 	let searchQuery = $state('');
-	let isLoading = $state(true);
+	let isLoading = $state(false);
 	let errorMessage = $state('');
 	let actionMessage = $state('');
 
@@ -41,6 +50,65 @@
 	let deleteModalItem = $state<SubmissionItem | null>(null);
 	let previewPhotoItem = $state<SubmissionItem | null>(null);
 	let isActionPending = $state(false);
+
+	async function checkAuth() {
+		authChecking = true;
+		try {
+			const res = await fetch('/api/moderator/auth');
+			const data = await res.json();
+			if (data.authenticated) {
+				isAuthenticated = true;
+				await loadSubmissions();
+			} else {
+				isAuthenticated = false;
+			}
+		} catch {
+			isAuthenticated = false;
+		} finally {
+			authChecking = false;
+		}
+	}
+
+	async function login(event: SubmitEvent) {
+		event.preventDefault();
+		if (!enteredKey.trim()) return;
+
+		isLoggingIn = true;
+		authError = '';
+
+		try {
+			const res = await fetch('/api/moderator/auth', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ key: enteredKey })
+			});
+			const data = await res.json();
+
+			if (data.success) {
+				isAuthenticated = true;
+				enteredKey = '';
+				await loadSubmissions();
+			} else {
+				authError = data.error || 'Invalid moderator passkey';
+			}
+		} catch {
+			authError = 'Connection failed. Please try again.';
+		} finally {
+			isLoggingIn = false;
+		}
+	}
+
+	async function logout() {
+		try {
+			await fetch('/api/moderator/auth', { method: 'DELETE' });
+		} catch (err) {
+			console.error('Logout error:', err);
+		} finally {
+			isAuthenticated = false;
+			submissions = [];
+			counts = { total: 0, pending: 0, approved: 0, denied: 0 };
+		}
+	}
 
 	async function loadSubmissions() {
 		isLoading = true;
@@ -55,6 +123,11 @@
 			}
 
 			const res = await fetch(`/api/moderator/submissions?${params.toString()}`);
+			if (res.status === 401) {
+				isAuthenticated = false;
+				return;
+			}
+
 			const data = await res.json();
 
 			if (data.success) {
@@ -88,6 +161,12 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id, status: newStatus })
 			});
+
+			if (res.status === 401) {
+				isAuthenticated = false;
+				return;
+			}
+
 			const data = await res.json();
 			if (data.success) {
 				actionMessage = `✓ Submission marked as ${newStatus}`;
@@ -112,6 +191,12 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id: deleteModalItem.id })
 			});
+
+			if (res.status === 401) {
+				isAuthenticated = false;
+				return;
+			}
+
 			const data = await res.json();
 			if (data.success) {
 				actionMessage = `✓ Submission deleted`;
@@ -143,328 +228,579 @@
 	}
 
 	onMount(() => {
-		loadSubmissions();
+		checkAuth();
 	});
 </script>
 
-<div class="moderator-dashboard">
-	<!-- TOP BAR -->
-	<header class="dashboard-header">
-		<div class="header-left">
-			<span class="badge">STAFF DASHBOARD</span>
-			<h1>Photo Album Moderation Panel</h1>
-			<p>Review, verify, approve, and manage submissions for Mio's 8th Anniversary Travel Book.</p>
+{#if authChecking}
+	<div class="auth-loading-state">
+		<div class="spinner"></div>
+		<p>Checking staff authorization...</p>
+	</div>
+{:else if !isAuthenticated}
+	<!-- PASSKEY PROTECTION GATE -->
+	<div class="auth-gate-page">
+		<div class="auth-gate-card">
+			<div class="auth-wolf-icon">🐺</div>
+			<span class="auth-badge">STAFF AREA</span>
+			<h2>Moderator Passkey Required</h2>
+			<p class="auth-desc">
+				Enter the project moderator passkey to review, approve, and manage submissions for Ookami
+				Mio's 8th Anniversary book.
+			</p>
+
+			<form class="auth-form" onsubmit={login}>
+				<div class="form-group">
+					<label for="passkey-input">Moderator Passkey</label>
+					<div class="passkey-wrapper">
+						<input
+							type={showPassword ? 'text' : 'password'}
+							id="passkey-input"
+							placeholder="Enter staff secret..."
+							bind:value={enteredKey}
+							required
+						/>
+						<button
+							type="button"
+							class="toggle-eye-btn"
+							onclick={() => (showPassword = !showPassword)}
+							aria-label={showPassword ? 'Hide passkey' : 'Show passkey'}
+						>
+							{showPassword ? '🙈' : '👁️'}
+						</button>
+					</div>
+				</div>
+
+				{#if authError}
+					<div class="auth-error-msg">
+						❌ {authError}
+					</div>
+				{/if}
+
+				<button type="submit" class="unlock-btn" disabled={isLoggingIn}>
+					{isLoggingIn ? 'Verifying...' : 'Unlock Moderator Panel →'}
+				</button>
+			</form>
+
+			<div class="auth-footer-nav">
+				<a href={resolve('/')} class="back-link">&larr; Return to Anniversary Book</a>
+			</div>
 		</div>
-		<div class="header-actions">
-			<a href={resolve('/')} class="view-site-btn">&larr; Live Book Site</a>
-			<a href={resolve('/submit')} class="view-site-btn">+ New Submission</a>
-			<button class="refresh-btn" onclick={loadSubmissions} disabled={isLoading}>
-				{isLoading ? 'Refreshing...' : '↻ Refresh'}
-			</button>
-		</div>
-	</header>
+	</div>
+{:else}
+	<!-- AUTHENTICATED MODERATOR DASHBOARD -->
+	<div class="moderator-dashboard">
+		<!-- TOP BAR -->
+		<header class="dashboard-header">
+			<div class="header-left">
+				<span class="badge">STAFF DASHBOARD</span>
+				<h1>Photo Album Moderation Panel</h1>
+				<p>
+					Review, verify, approve, and manage submissions for Mio's 8th Anniversary Travel Book.
+				</p>
+			</div>
+			<div class="header-actions">
+				<span class="staff-badge">🛡️ Authenticated Staff</span>
+				<a href={resolve('/')} class="view-site-btn">&larr; Live Book Site</a>
+				<a href={resolve('/submit')} class="view-site-btn">+ New Submission</a>
+				<button class="refresh-btn" onclick={loadSubmissions} disabled={isLoading}>
+					{isLoading ? 'Refreshing...' : '↻ Refresh'}
+				</button>
+				<button type="button" class="logout-btn" onclick={logout} title="Lock and end session">
+					🔒 Lock
+				</button>
+			</div>
+		</header>
 
-	<!-- STATS CARDS -->
-	<section class="metrics-grid">
-		<button
-			type="button"
-			class="metric-card"
-			class:selected={currentFilter === 'ALL'}
-			onclick={() => setFilter('ALL')}
-		>
-			<span class="metric-label">Total Submissions</span>
-			<span class="metric-value">{counts.total}</span>
-		</button>
-		<button
-			type="button"
-			class="metric-card card-pending"
-			class:selected={currentFilter === 'PENDING'}
-			onclick={() => setFilter('PENDING')}
-		>
-			<span class="metric-label">Needs Review (Pending)</span>
-			<span class="metric-value">{counts.pending}</span>
-			{#if counts.pending > 0}
-				<span class="metric-alert">Action required</span>
-			{/if}
-		</button>
-		<button
-			type="button"
-			class="metric-card card-approved"
-			class:selected={currentFilter === 'APPROVED'}
-			onclick={() => setFilter('APPROVED')}
-		>
-			<span class="metric-label">Approved for Album</span>
-			<span class="metric-value">{counts.approved}</span>
-		</button>
-		<button
-			type="button"
-			class="metric-card card-denied"
-			class:selected={currentFilter === 'DENIED'}
-			onclick={() => setFilter('DENIED')}
-		>
-			<span class="metric-label">Declined / Denied</span>
-			<span class="metric-value">{counts.denied}</span>
-		</button>
-	</section>
-
-	<!-- FEEDBACK NOTIFICATIONS -->
-	{#if actionMessage}
-		<div class="banner banner-success">{actionMessage}</div>
-	{/if}
-	{#if errorMessage}
-		<div class="banner banner-error">{errorMessage}</div>
-	{/if}
-
-	<!-- CONTROLS & SEARCH BAR -->
-	<div class="filter-controls-row">
-		<!-- FILTER TABS -->
-		<div class="filter-tabs">
+		<!-- STATS CARDS -->
+		<section class="metrics-grid">
 			<button
 				type="button"
-				class="tab-btn"
-				class:active={currentFilter === 'ALL'}
+				class="metric-card"
+				class:selected={currentFilter === 'ALL'}
 				onclick={() => setFilter('ALL')}
 			>
-				All ({counts.total})
+				<span class="metric-label">Total Submissions</span>
+				<span class="metric-value">{counts.total}</span>
 			</button>
 			<button
 				type="button"
-				class="tab-btn tab-pending"
-				class:active={currentFilter === 'PENDING'}
+				class="metric-card card-pending"
+				class:selected={currentFilter === 'PENDING'}
 				onclick={() => setFilter('PENDING')}
 			>
-				Pending ({counts.pending})
+				<span class="metric-label">Needs Review (Pending)</span>
+				<span class="metric-value">{counts.pending}</span>
+				{#if counts.pending > 0}
+					<span class="metric-alert">Action required</span>
+				{/if}
 			</button>
 			<button
 				type="button"
-				class="tab-btn tab-approved"
-				class:active={currentFilter === 'APPROVED'}
+				class="metric-card card-approved"
+				class:selected={currentFilter === 'APPROVED'}
 				onclick={() => setFilter('APPROVED')}
 			>
-				Approved ({counts.approved})
+				<span class="metric-label">Approved for Album</span>
+				<span class="metric-value">{counts.approved}</span>
 			</button>
 			<button
 				type="button"
-				class="tab-btn tab-denied"
-				class:active={currentFilter === 'DENIED'}
+				class="metric-card card-denied"
+				class:selected={currentFilter === 'DENIED'}
 				onclick={() => setFilter('DENIED')}
 			>
-				Denied ({counts.denied})
+				<span class="metric-label">Declined / Denied</span>
+				<span class="metric-value">{counts.denied}</span>
 			</button>
-		</div>
+		</section>
 
-		<!-- SEARCH INPUT -->
-		<div class="search-box">
-			<span class="search-icon">🔍</span>
-			<input
-				type="text"
-				placeholder="Search by name, country, username, contact..."
-				bind:value={searchQuery}
-				oninput={handleSearchInput}
-			/>
-			{#if searchQuery}
+		<!-- FEEDBACK NOTIFICATIONS -->
+		{#if actionMessage}
+			<div class="banner banner-success">{actionMessage}</div>
+		{/if}
+		{#if errorMessage}
+			<div class="banner banner-error">{errorMessage}</div>
+		{/if}
+
+		<!-- CONTROLS & SEARCH BAR -->
+		<div class="filter-controls-row">
+			<!-- FILTER TABS -->
+			<div class="filter-tabs">
 				<button
-					class="clear-search-btn"
-					onclick={() => {
-						searchQuery = '';
-						loadSubmissions();
-					}}>&times;</button
+					type="button"
+					class="tab-btn"
+					class:active={currentFilter === 'ALL'}
+					onclick={() => setFilter('ALL')}
 				>
-			{/if}
+					All ({counts.total})
+				</button>
+				<button
+					type="button"
+					class="tab-btn tab-pending"
+					class:active={currentFilter === 'PENDING'}
+					onclick={() => setFilter('PENDING')}
+				>
+					Pending ({counts.pending})
+				</button>
+				<button
+					type="button"
+					class="tab-btn tab-approved"
+					class:active={currentFilter === 'APPROVED'}
+					onclick={() => setFilter('APPROVED')}
+				>
+					Approved ({counts.approved})
+				</button>
+				<button
+					type="button"
+					class="tab-btn tab-denied"
+					class:active={currentFilter === 'DENIED'}
+					onclick={() => setFilter('DENIED')}
+				>
+					Denied ({counts.denied})
+				</button>
+			</div>
+
+			<!-- SEARCH INPUT -->
+			<div class="search-box">
+				<span class="search-icon">🔍</span>
+				<input
+					type="text"
+					placeholder="Search by name, country, username, contact..."
+					bind:value={searchQuery}
+					oninput={handleSearchInput}
+				/>
+				{#if searchQuery}
+					<button
+						class="clear-search-btn"
+						onclick={() => {
+							searchQuery = '';
+							loadSubmissions();
+						}}>&times;</button
+					>
+				{/if}
+			</div>
 		</div>
-	</div>
 
-	<!-- TABLE CONTAINER -->
-	<div class="table-container">
-		{#if isLoading}
-			<div class="empty-state">
-				<p>Loading entries...</p>
-			</div>
-		{:else if submissions.length === 0}
-			<div class="empty-state">
-				<p>No submissions found matching the current filter or search criteria.</p>
-			</div>
-		{:else}
-			<table class="submissions-table">
-				<thead>
-					<tr>
-						<th>Food Image</th>
-						<th>Submitter & Region</th>
-						<th>Private ID / Contact</th>
-						<th>Anniversary Message</th>
-						<th>Date</th>
-						<th>Status</th>
-						<th>Actions</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each submissions as sub (sub.id)}
-						<tr class="status-row-{sub.status.toLowerCase()}">
-							<!-- 1. FOOD IMAGE THUMBNAIL -->
-							<td class="photo-cell">
-								<button
-									type="button"
-									class="photo-thumb-btn"
-									onclick={() => (previewPhotoItem = sub)}
-									title="Click to view full photo"
-								>
-									<img src={sub.photo} alt="Food dish" />
-									<span class="zoom-pill">Zoom</span>
-								</button>
-							</td>
-
-							<!-- 2. SUBMITTER & REGION -->
-							<td class="user-cell">
-								<div class="user-row">
-									<img
-										src={sub.user.profilePic || '/user/m1.jpg'}
-										alt="Avatar"
-										class="table-avatar"
-									/>
-									<div>
-										<div class="user-name">{sub.user.name || 'Anonymous Miofa'}</div>
-										<div class="user-country">📍 {sub.user.country || 'Unknown'}</div>
-									</div>
-								</div>
-							</td>
-
-							<!-- 3. PRIVATE USERNAME & CONTACT FOR VERIFICATION -->
-							<td class="contact-cell">
-								<div class="username-tag">User: <strong>{sub.user.username || 'n/a'}</strong></div>
-								<div class="contact-tag">
-									<span class="contact-type">[{sub.user.contact?.type || 'CONTACT'}]</span>
-									<span class="contact-info">{sub.user.contact?.info || 'None'}</span>
-								</div>
-							</td>
-
-							<!-- 4. MESSAGE -->
-							<td class="message-cell">
-								<div class="message-text">"{sub.message}"</div>
-							</td>
-
-							<!-- 5. DATE -->
-							<td class="date-cell">
-								<span class="date-time">{formatDate(sub.submittedAt)}</span>
-							</td>
-
-							<!-- 6. STATUS BADGE -->
-							<td class="status-cell">
-								<span class="status-badge badge-{sub.status.toLowerCase()}">
-									{sub.status}
-								</span>
-							</td>
-
-							<!-- 7. ACTIONS -->
-							<td class="actions-cell">
-								<div class="action-buttons">
-									{#if sub.status !== 'APPROVED'}
-										<button
-											type="button"
-											class="btn-action btn-approve"
-											onclick={() => updateStatus(sub.id, 'APPROVED')}
-											disabled={isActionPending}
-										>
-											Approve
-										</button>
-									{/if}
-
-									{#if sub.status !== 'DENIED'}
-										<button
-											type="button"
-											class="btn-action btn-deny"
-											onclick={() => updateStatus(sub.id, 'DENIED')}
-											disabled={isActionPending}
-										>
-											Deny
-										</button>
-									{/if}
-
+		<!-- TABLE CONTAINER -->
+		<div class="table-container">
+			{#if isLoading}
+				<div class="empty-state">
+					<p>Loading entries...</p>
+				</div>
+			{:else if submissions.length === 0}
+				<div class="empty-state">
+					<p>No submissions found matching the current filter or search criteria.</p>
+				</div>
+			{:else}
+				<table class="submissions-table">
+					<thead>
+						<tr>
+							<th>Food Image</th>
+							<th>Submitter & Region</th>
+							<th>Private ID / Contact</th>
+							<th>Anniversary Message</th>
+							<th>Date</th>
+							<th>Status</th>
+							<th>Actions</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each submissions as sub (sub.id)}
+							<tr class="status-row-{sub.status.toLowerCase()}">
+								<!-- 1. FOOD IMAGE THUMBNAIL -->
+								<td class="photo-cell">
 									<button
 										type="button"
-										class="btn-action btn-delete"
-										onclick={() => (deleteModalItem = sub)}
-										disabled={isActionPending}
+										class="photo-thumb-btn"
+										onclick={() => (previewPhotoItem = sub)}
+										title="Click to view full photo"
 									>
-										Delete
+										<img src={sub.photo} alt="Food dish" />
+										<span class="zoom-pill">Zoom</span>
 									</button>
-								</div>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
+								</td>
+
+								<!-- 2. SUBMITTER & REGION -->
+								<td class="user-cell">
+									<div class="user-row">
+										<img
+											src={sub.user.profilePic || '/user/m1.jpg'}
+											alt="Avatar"
+											class="table-avatar"
+										/>
+										<div>
+											<div class="user-name">{sub.user.name || 'Anonymous Miofa'}</div>
+											<div class="user-country">📍 {sub.user.country || 'Unknown'}</div>
+										</div>
+									</div>
+								</td>
+
+								<!-- 3. PRIVATE USERNAME & CONTACT FOR VERIFICATION -->
+								<td class="contact-cell">
+									<div class="username-tag">
+										User: <strong>{sub.user.username || 'n/a'}</strong>
+									</div>
+									<div class="contact-tag">
+										<span class="contact-type">[{sub.user.contact?.type || 'CONTACT'}]</span>
+										<span class="contact-info">{sub.user.contact?.info || 'None'}</span>
+									</div>
+								</td>
+
+								<!-- 4. MESSAGE -->
+								<td class="message-cell">
+									<div class="message-text">"{sub.message}"</div>
+								</td>
+
+								<!-- 5. DATE -->
+								<td class="date-cell">
+									<span class="date-time">{formatDate(sub.submittedAt)}</span>
+								</td>
+
+								<!-- 6. STATUS BADGE -->
+								<td class="status-cell">
+									<span class="status-badge badge-{sub.status.toLowerCase()}">
+										{sub.status}
+									</span>
+								</td>
+
+								<!-- 7. ACTIONS -->
+								<td class="actions-cell">
+									<div class="action-buttons">
+										{#if sub.status !== 'APPROVED'}
+											<button
+												type="button"
+												class="btn-action btn-approve"
+												onclick={() => updateStatus(sub.id, 'APPROVED')}
+												disabled={isActionPending}
+											>
+												Approve
+											</button>
+										{/if}
+
+										{#if sub.status !== 'DENIED'}
+											<button
+												type="button"
+												class="btn-action btn-deny"
+												onclick={() => updateStatus(sub.id, 'DENIED')}
+												disabled={isActionPending}
+											>
+												Deny
+											</button>
+										{/if}
+
+										<button
+											type="button"
+											class="btn-action btn-delete"
+											onclick={() => (deleteModalItem = sub)}
+											disabled={isActionPending}
+										>
+											Delete
+										</button>
+									</div>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			{/if}
+		</div>
+
+		<!-- DELETE CONFIRMATION MODAL -->
+		{#if deleteModalItem}
+			<div
+				class="modal-backdrop"
+				onclick={() => (deleteModalItem = null)}
+				onkeydown={(e) => e.key === 'Escape' && (deleteModalItem = null)}
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+			>
+				<div
+					class="confirm-modal"
+					onclick={(e) => e.stopPropagation()}
+					onkeydown={(e) => e.stopPropagation()}
+					role="document"
+					tabindex="0"
+				>
+					<h3 style="color: #ef4444; margin-top: 0;">Confirm Permanent Deletion</h3>
+					<p>
+						Are you sure you want to delete the submission from
+						<strong>{deleteModalItem.user.name || 'Anonymous Miofa'}</strong>
+						({deleteModalItem.user.country})?
+					</p>
+					<p class="modal-warning">
+						⚠️ This will permanently remove the entry and delete its uploaded food image. This
+						action cannot be undone.
+					</p>
+					<div class="modal-buttons">
+						<button
+							type="button"
+							class="modal-btn btn-cancel"
+							onclick={() => (deleteModalItem = null)}
+							disabled={isActionPending}
+						>
+							Cancel
+						</button>
+						<button
+							type="button"
+							class="modal-btn btn-confirm-delete"
+							onclick={confirmDelete}
+							disabled={isActionPending}
+						>
+							{isActionPending ? 'Deleting...' : 'Yes, Delete Entry'}
+						</button>
+					</div>
+				</div>
+			</div>
+		{/if}
+
+		<!-- IMAGE ZOOM PREVIEW MODAL -->
+		{#if previewPhotoItem}
+			<div
+				class="modal-backdrop"
+				onclick={() => (previewPhotoItem = null)}
+				onkeydown={(e) => e.key === 'Escape' && (previewPhotoItem = null)}
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+			>
+				<div
+					class="photo-inspect-modal"
+					onclick={(e) => e.stopPropagation()}
+					onkeydown={(e) => e.stopPropagation()}
+					role="document"
+					tabindex="0"
+				>
+					<button class="modal-close-x" onclick={() => (previewPhotoItem = null)} aria-label="Close"
+						>&times;</button
+					>
+					<img src={previewPhotoItem.photo} alt="Dish zoom" class="inspect-img" />
+					<div class="inspect-info">
+						<h3>
+							{previewPhotoItem.user.name || 'Anonymous Miofa'} &bull; {previewPhotoItem.user
+								.country}
+						</h3>
+						<p>"{previewPhotoItem.message}"</p>
+						<span class="status-badge badge-{previewPhotoItem.status.toLowerCase()}"
+							>{previewPhotoItem.status}</span
+						>
+					</div>
+				</div>
+			</div>
 		{/if}
 	</div>
-
-	<!-- DELETE CONFIRMATION MODAL -->
-	{#if deleteModalItem}
-		<div
-			class="modal-backdrop"
-			onclick={() => (deleteModalItem = null)}
-			role="dialog"
-			aria-modal="true"
-		>
-			<div class="confirm-modal" onclick={(e) => e.stopPropagation()} role="document">
-				<h3 style="color: #ef4444; margin-top: 0;">Confirm Permanent Deletion</h3>
-				<p>
-					Are you sure you want to delete the submission from
-					<strong>{deleteModalItem.user.name || 'Anonymous Miofa'}</strong>
-					({deleteModalItem.user.country})?
-				</p>
-				<p class="modal-warning">
-					⚠️ This will permanently remove the entry and delete its uploaded food image. This action
-					cannot be undone.
-				</p>
-				<div class="modal-buttons">
-					<button
-						type="button"
-						class="modal-btn btn-cancel"
-						onclick={() => (deleteModalItem = null)}
-						disabled={isActionPending}
-					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						class="modal-btn btn-confirm-delete"
-						onclick={confirmDelete}
-						disabled={isActionPending}
-					>
-						{isActionPending ? 'Deleting...' : 'Yes, Delete Entry'}
-					</button>
-				</div>
-			</div>
-		</div>
-	{/if}
-
-	<!-- IMAGE ZOOM PREVIEW MODAL -->
-	{#if previewPhotoItem}
-		<div
-			class="modal-backdrop"
-			onclick={() => (previewPhotoItem = null)}
-			role="dialog"
-			aria-modal="true"
-		>
-			<div class="photo-inspect-modal" onclick={(e) => e.stopPropagation()} role="document">
-				<button class="modal-close-x" onclick={() => (previewPhotoItem = null)} aria-label="Close"
-					>&times;</button
-				>
-				<img src={previewPhotoItem.photo} alt="Dish zoom" class="inspect-img" />
-				<div class="inspect-info">
-					<h3>
-						{previewPhotoItem.user.name || 'Anonymous Miofa'} &bull; {previewPhotoItem.user.country}
-					</h3>
-					<p>"{previewPhotoItem.message}"</p>
-					<span class="status-badge badge-{previewPhotoItem.status.toLowerCase()}"
-						>{previewPhotoItem.status}</span
-					>
-				</div>
-			</div>
-		</div>
-	{/if}
-</div>
+{/if}
 
 <style>
+	/* AUTH GATE */
+	.auth-loading-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		min-height: 60vh;
+		color: #94a3b8;
+		gap: 15px;
+	}
+	.spinner {
+		width: 36px;
+		height: 36px;
+		border: 3px solid rgba(255, 255, 255, 0.1);
+		border-top-color: #ffd700;
+		border-radius: 50%;
+		animation: spin 0.8s linear infinite;
+	}
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	.auth-gate-page {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		min-height: 75vh;
+		padding: 20px;
+	}
+	.auth-gate-card {
+		background: #171724;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		border-radius: 12px;
+		padding: 40px 32px;
+		max-width: 440px;
+		width: 100%;
+		text-align: center;
+		box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+	}
+	.auth-wolf-icon {
+		font-size: 2.5rem;
+		margin-bottom: 10px;
+	}
+	.auth-badge {
+		display: inline-block;
+		background: #c92a42;
+		color: #fff;
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.1em;
+		padding: 3px 10px;
+		border-radius: 4px;
+		margin-bottom: 12px;
+	}
+	.auth-gate-card h2 {
+		font-size: 1.6rem;
+		color: #ffd700;
+		margin: 0 0 8px;
+	}
+	.auth-desc {
+		font-size: 0.88rem;
+		color: #94a3b8;
+		margin: 0 0 25px;
+		line-height: 1.5;
+	}
+	.auth-form {
+		text-align: left;
+	}
+	.passkey-wrapper {
+		position: relative;
+		display: flex;
+		align-items: center;
+		margin-top: 6px;
+	}
+	.passkey-wrapper input {
+		width: 100%;
+		padding: 11px 40px 11px 14px;
+		background: #0f0f18;
+		border: 1px solid rgba(255, 255, 255, 0.15);
+		border-radius: 6px;
+		color: #fff;
+		font-size: 0.95rem;
+	}
+	.passkey-wrapper input:focus {
+		outline: none;
+		border-color: #ffd700;
+	}
+	.toggle-eye-btn {
+		position: absolute;
+		right: 10px;
+		background: none;
+		border: none;
+		cursor: pointer;
+		font-size: 1rem;
+		padding: 4px;
+	}
+	.auth-error-msg {
+		margin-top: 12px;
+		background: rgba(239, 68, 68, 0.15);
+		border: 1px solid #ef4444;
+		color: #fca5a5;
+		padding: 8px 12px;
+		border-radius: 6px;
+		font-size: 0.85rem;
+	}
+	.unlock-btn {
+		width: 100%;
+		margin-top: 20px;
+		padding: 12px;
+		background: #c92a42;
+		color: #fff;
+		font-weight: 700;
+		border: none;
+		border-radius: 6px;
+		cursor: pointer;
+		font-size: 0.95rem;
+		transition: background 0.2s;
+	}
+	.unlock-btn:hover:not(:disabled) {
+		background: #a82035;
+	}
+	.unlock-btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+	.auth-footer-nav {
+		margin-top: 25px;
+	}
+	.back-link {
+		color: #94a3b8;
+		text-decoration: none;
+		font-size: 0.85rem;
+	}
+	.back-link:hover {
+		color: #ffd700;
+	}
+
+	.staff-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		background: rgba(16, 185, 129, 0.15);
+		border: 1px solid rgba(16, 185, 129, 0.4);
+		color: #6ee7b7;
+		padding: 6px 12px;
+		border-radius: 6px;
+		font-size: 0.8rem;
+		font-weight: 700;
+	}
+	.logout-btn {
+		padding: 8px 14px;
+		background: rgba(239, 68, 68, 0.15);
+		border: 1px solid rgba(239, 68, 68, 0.35);
+		border-radius: 6px;
+		color: #fca5a5;
+		font-size: 0.85rem;
+		font-weight: 700;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+	.logout-btn:hover {
+		background: #ef4444;
+		color: #fff;
+	}
+
+	/* DASHBOARD */
 	.moderator-dashboard {
 		max-width: 1300px;
 		margin: 0 auto;
@@ -498,6 +834,7 @@
 		display: flex;
 		gap: 10px;
 		flex-wrap: wrap;
+		align-items: center;
 	}
 	.view-site-btn,
 	.refresh-btn {
