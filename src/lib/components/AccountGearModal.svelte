@@ -208,7 +208,7 @@
 			if (data.success && data.submission) {
 				fanSubmission = data.submission;
 				isEditing = false;
-				fanFeedback = '✓ Entry successfully updated!';
+				fanFeedback = 'Entry successfully updated.';
 				setTimeout(() => {
 					fanFeedback = '';
 				}, 4000);
@@ -237,7 +237,7 @@
 				fanSubmission = null;
 				showWithdrawConfirm = false;
 				isEditing = false;
-				fanFeedback = '✓ Your entry has been withdrawn from the archive.';
+				fanFeedback = 'Your entry has been withdrawn from the archive.';
 				setTimeout(() => {
 					fanFeedback = '';
 				}, 5000);
@@ -347,7 +347,6 @@
 		>
 			<div class="portal-header">
 				<div class="portal-title-group">
-					<span class="portal-icon">⚙️</span>
 					<div>
 						<h2>Account & Settings</h2>
 						<p class="portal-sub">Manage your dish submission or sign in as staff</p>
@@ -366,7 +365,7 @@
 					class:active={activeTab === 'fan'}
 					onclick={() => (activeTab = 'fan')}
 				>
-					🍱 My Submission
+					My Submission
 					{#if fanAuthenticated}
 						<span class="mini-tag">Active</span>
 					{/if}
@@ -377,7 +376,7 @@
 					class:active={activeTab === 'staff'}
 					onclick={() => (activeTab = 'staff')}
 				>
-					🛡️ Staff Portal
+					Staff Portal
 					{#if staffAuthenticated}
 						<span class="mini-tag">Staff</span>
 					{/if}
@@ -428,13 +427,13 @@
 										class="eye-btn"
 										onclick={() => (fanShowPassword = !fanShowPassword)}
 									>
-										{fanShowPassword ? '🙈' : '👁️'}
+										{fanShowPassword ? 'Hide' : 'Show'}
 									</button>
 								</div>
 							</div>
 
 							{#if fanError}
-								<div class="error-box">❌ {fanError}</div>
+								<div class="error-box">{fanError}</div>
 							{/if}
 							{#if fanFeedback}
 								<div class="success-box">{fanFeedback}</div>
@@ -455,7 +454,7 @@
 							<!-- EDIT MODE -->
 							<form class="portal-form edit-form" onsubmit={saveFanEdits}>
 								<div class="edit-header">
-									<h3>✏️ Edit Your Dish Submission</h3>
+									<h3>Edit Your Dish Submission</h3>
 									<p class="edit-sub">Updates will be saved to the 8th anniversary book archive.</p>
 								</div>
 
@@ -503,14 +502,14 @@
 										<div class="edit-preview-box">
 											<img src={editPhotoPreview} alt="New food preview" />
 											{#if editFileSizeText}
-												<span class="file-size-tag">📷 {editFileSizeText}</span>
+												<span class="file-size-tag">{editFileSizeText}</span>
 											{/if}
 										</div>
 									{/if}
 								</div>
 
 								{#if fanError}
-									<div class="error-box">❌ {fanError}</div>
+									<div class="error-box">{fanError}</div>
 								{/if}
 
 								<div class="edit-actions-row">
@@ -532,11 +531,11 @@
 							<div class="submission-view">
 								<div class="status-banner banner-{fanSubmission.status.toLowerCase()}">
 									{#if fanSubmission.status === 'APPROVED'}
-										✨ <strong>Approved:</strong> Featured in the 8th Anniversary book!
+										<strong>Approved:</strong> Featured in the 8th Anniversary book!
 									{:else if fanSubmission.status === 'PENDING'}
-										⏳ <strong>Pending:</strong> Awaiting moderator verification.
+										<strong>Pending:</strong> Awaiting moderator verification.
 									{:else}
-										❌ <strong>Declined:</strong> Check message guidelines or edit entry.
+										<strong>Declined:</strong> Check message guidelines or edit entry.
 									{/if}
 								</div>
 
@@ -549,7 +548,7 @@
 												<h4 class="entry-author-name">
 													{fanSubmission.displayName || 'Anonymous Miofa'}
 												</h4>
-												<span class="entry-country">📍 {fanSubmission.country}</span>
+												<span class="entry-country">{fanSubmission.country}</span>
 											</div>
 										</div>
 										<p class="entry-message">"{fanSubmission.message}"</p>
@@ -564,7 +563,7 @@
 								{#if showWithdrawConfirm}
 									<div class="withdraw-confirm-box">
 										<p>
-											⚠️ <strong>Are you sure you want to withdraw this entry?</strong>
+											<strong>Are you sure you want to withdraw this entry?</strong>
 											This will permanently delete your food picture and remove it from the collection.
 										</p>
 										<div class="withdraw-actions">
@@ -589,14 +588,14 @@
 								{:else}
 									<div class="entry-actions-row">
 										<button type="button" class="btn-edit" onclick={startEditing}>
-											✏️ Edit Details / Photo
+											Edit Details / Photo
 										</button>
 										<button
 											type="button"
 											class="btn-withdraw"
 											onclick={() => (showWithdrawConfirm = true)}
 										>
-											🗑️ Withdraw
+											Withdraw Entry
 										</button>
 										<button type="button" class="btn-signout" onclick={logoutFan}>
 											Sign Out
@@ -620,7 +619,7 @@
 					{:else if staffAuthenticated && staffUser}
 						<div class="staff-logged-in-view">
 							<div class="staff-card">
-								<span class="wolf-badge">🐺 STAFF SESSION ACTIVE</span>
+								<span class="wolf-badge">STAFF SESSION ACTIVE</span>
 								<h3>Signed in as @{staffUser.username}</h3>
 								<p>
 									You have full access to review submissions, approve entries, and manage photo
@@ -674,13 +673,13 @@
 										class="eye-btn"
 										onclick={() => (staffShowPassword = !staffShowPassword)}
 									>
-										{staffShowPassword ? '🙈' : '👁️'}
+										{staffShowPassword ? 'Hide' : 'Show'}
 									</button>
 								</div>
 							</div>
 
 							{#if staffError}
-								<div class="error-box">❌ {staffError}</div>
+								<div class="error-box">{staffError}</div>
 							{/if}
 
 							<button type="submit" class="portal-submit-btn" disabled={staffLoading}>

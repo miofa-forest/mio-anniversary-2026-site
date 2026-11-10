@@ -323,7 +323,7 @@
 								<p class="caption">{leaf.back.caption}</p>
 							{:else}
 								<div class="empty-leaf-content">
-									<p class="empty-prompt">🌟 Submit your regional dish to fill this page!</p>
+									<p class="empty-prompt">Submit your regional dish to fill this page!</p>
 									<a
 										href={resolve('/submit')}
 										class="submit-mini-btn"
@@ -384,7 +384,7 @@
 					</div>
 					<div class="postcard-photo-meta">
 						<span class="entry-index">{selectedEntry.caption}</span>
-						<span class="entry-country">📍 {selectedEntry.country}</span>
+						<span class="entry-country">{selectedEntry.country}</span>
 					</div>
 				</div>
 
@@ -394,7 +394,7 @@
 				<!-- RIGHT SIDE: NOTE BACKSIDE -->
 				<div class="postcard-back">
 					<div class="stamp-box">
-						<span>🐺 MIOFA<br />POST</span>
+						<span>MIOFA<br />POST</span>
 					</div>
 
 					<div class="postcard-author-header">

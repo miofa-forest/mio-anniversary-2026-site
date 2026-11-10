@@ -179,7 +179,7 @@
 
 			const data = await res.json();
 			if (data.success) {
-				actionMessage = `✓ Submission marked as ${newStatus}`;
+				actionMessage = `Submission marked as ${newStatus}`;
 				await loadSubmissions();
 			} else {
 				errorMessage = data.error || 'Failed to update status';
@@ -209,7 +209,7 @@
 
 			const data = await res.json();
 			if (data.success) {
-				actionMessage = `✓ Submission deleted`;
+				actionMessage = 'Submission deleted';
 				deleteModalItem = null;
 				await loadSubmissions();
 			} else {
@@ -251,7 +251,6 @@
 	<!-- STAFF ACCOUNT SIGN-IN GATE -->
 	<div class="auth-gate-page">
 		<div class="auth-gate-card">
-			<div class="auth-wolf-icon">🐺</div>
 			<span class="auth-badge">STAFF AREA</span>
 			<h2>Staff Sign-In</h2>
 			<p class="auth-desc">
@@ -290,14 +289,14 @@
 							onclick={() => (showPassword = !showPassword)}
 							aria-label={showPassword ? 'Hide password' : 'Show password'}
 						>
-							{showPassword ? '🙈' : '👁️'}
+							{showPassword ? 'Hide' : 'Show'}
 						</button>
 					</div>
 				</div>
 
 				{#if authError}
 					<div class="auth-error-msg">
-						❌ {authError}
+						{authError}
 					</div>
 				{/if}
 
@@ -325,12 +324,12 @@
 			</div>
 			<div class="header-actions">
 				<span class="staff-badge">
-					🛡️ @{currentUser?.username || 'admin'} ({currentUser?.role || 'staff'})
+					@{currentUser?.username || 'admin'} ({currentUser?.role || 'staff'})
 				</span>
 				<a href={resolve('/')} class="view-site-btn">&larr; Live Book Site</a>
 				<a href={resolve('/submit')} class="view-site-btn">+ New Submission</a>
 				<button class="refresh-btn" onclick={loadSubmissions} disabled={isLoading}>
-					{isLoading ? 'Refreshing...' : '↻ Refresh'}
+					{isLoading ? 'Refreshing...' : 'Refresh'}
 				</button>
 				<button type="button" class="logout-btn" onclick={logout} title="Log out and end session">
 					Sign Out
@@ -429,7 +428,6 @@
 
 			<!-- SEARCH INPUT -->
 			<div class="search-box">
-				<span class="search-icon">🔍</span>
 				<input
 					type="text"
 					placeholder="Search by name, country, username, contact..."
@@ -497,7 +495,7 @@
 										/>
 										<div>
 											<div class="user-name">{sub.user.name || 'Anonymous Miofa'}</div>
-											<div class="user-country">📍 {sub.user.country || 'Unknown'}</div>
+											<div class="user-country">{sub.user.country || 'Unknown'}</div>
 										</div>
 									</div>
 								</td>
@@ -596,8 +594,8 @@
 						({deleteModalItem.user.country})?
 					</p>
 					<p class="modal-warning">
-						⚠️ This will permanently remove the entry and delete its uploaded food image. This
-						action cannot be undone.
+						This will permanently remove the entry and delete its uploaded food image. This action
+						cannot be undone.
 					</p>
 					<div class="modal-buttons">
 						<button

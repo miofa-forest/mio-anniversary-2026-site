@@ -51,7 +51,7 @@
 
 		// Fallbacks
 		const finalDisplayName = displayName.trim() || 'Anonymous Miofa';
-		const finalMessage = message.trim() || 'Happy 8th Anniversary, Mio mama! 🌲✨';
+		const finalMessage = message.trim() || 'Happy 8th Anniversary, Mio mama!';
 
 		const formData = new FormData();
 		formData.append('displayName', finalDisplayName);
@@ -96,7 +96,7 @@
 
 			if (result.success) {
 				isSuccess = true;
-				feedbackMessage = `✓ Entry received for [${finalDisplayName}] from ${country}! Thank you for contributing to the album!`;
+				feedbackMessage = `Entry received for [${finalDisplayName}] from ${country}! Thank you for contributing to the album!`;
 				displayName = '';
 				country = '';
 				username = '';
@@ -109,11 +109,11 @@
 				if (foodInput) foodInput.value = '';
 			} else {
 				isSuccess = false;
-				feedbackMessage = `❌ Submission failed: ${result.error || 'Please verify the form inputs.'}`;
+				feedbackMessage = `Submission failed: ${result.error || 'Please verify the form inputs.'}`;
 			}
 		} catch {
 			isSuccess = false;
-			feedbackMessage = '❌ Server connection error. Please try again.';
+			feedbackMessage = 'Server connection error. Please try again.';
 		} finally {
 			isSubmitting = false;
 		}
@@ -132,7 +132,7 @@
 			commemorative book.
 		</p>
 		<p class="already-submitted-note">
-			Already submitted? Click the <strong>⚙️ gear icon</strong> in the bottom-left corner to check, edit,
+			Already submitted? Click the <strong>gear icon</strong> in the bottom-left corner to check, edit,
 			or withdraw your dish anytime.
 		</p>
 
@@ -195,7 +195,7 @@
 					<div class="preview-box">
 						<img src={foodPreviewUrl} alt="Food Preview" />
 						{#if foodFileSizeText}
-							<p class="file-size-hint">📷 {foodFileSizeText}</p>
+							<p class="file-size-hint">{foodFileSizeText}</p>
 						{/if}
 					</div>
 				{/if}
