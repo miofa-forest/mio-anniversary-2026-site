@@ -366,7 +366,6 @@
 		</div>
 		<div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
 			<a href={resolve('/submit')} class="primary-btn">Go to Submission Page &rarr;</a>
-			<a href={resolve('/moderator')} class="staff-link">Staff Moderation Panel &rarr;</a>
 		</div>
 	</section>
 
@@ -819,21 +818,6 @@
 	.primary-btn:hover {
 		background: #a82035;
 		transform: translateY(-1px);
-	}
-
-	.staff-link {
-		color: #94a3b8;
-		text-decoration: none;
-		font-size: 0.88rem;
-		font-weight: 600;
-		padding: 10px 16px;
-		border: 1px solid rgba(255, 255, 255, 0.12);
-		border-radius: 6px;
-		transition: all 0.2s;
-	}
-	.staff-link:hover {
-		color: #ffd700;
-		border-color: #ffd700;
 	}
 
 	/* POLAROID MODAL */

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { compressImage, formatFileSize } from '$lib/imageCompression';
 
 	let displayName = $state('');
 	let avatarInput = $state<HTMLInputElement | null>(null);
@@ -8,6 +9,7 @@
 	let country = $state('');
 	let foodInput = $state<HTMLInputElement | null>(null);
 	let foodPreviewUrl = $state<string | null>(null);
+	let foodFileSizeText = $state<string>('');
 
 	let username = $state('');
 	let password = $state('');
@@ -32,16 +34,19 @@
 	function handleFoodChange(event: Event) {
 		const target = event.target as HTMLInputElement;
 		if (target.files && target.files[0]) {
-			foodPreviewUrl = URL.createObjectURL(target.files[0]);
+			const file = target.files[0];
+			foodPreviewUrl = URL.createObjectURL(file);
+			foodFileSizeText = `${formatFileSize(file.size)} (will be auto-optimized before upload)`;
 		} else {
 			foodPreviewUrl = null;
+			foodFileSizeText = '';
 		}
 	}
 
 	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
 		isSubmitting = true;
-		feedbackMessage = 'Submitting your entry...';
+		feedbackMessage = 'Preparing and optimizing submission...';
 		isSuccess = false;
 
 		// Fallbacks
@@ -56,19 +61,33 @@
 		formData.append('contact', contact.trim());
 		formData.append('message', finalMessage);
 
-		if (avatarInput?.files?.[0]) {
-			formData.append('avatar', avatarInput.files[0]);
-		} else {
-			// Pick random default avatar
-			const randomAvatar = defaultAvatars[Math.floor(Math.random() * defaultAvatars.length)];
-			formData.append('defaultAvatarUrl', randomAvatar);
-		}
-
-		if (foodInput?.files?.[0]) {
-			formData.append('foodImage', foodInput.files[0]);
-		}
-
 		try {
+			if (avatarInput?.files?.[0]) {
+				const originalAvatar = avatarInput.files[0];
+				const optimizedAvatar = await compressImage(originalAvatar, {
+					maxWidth: 400,
+					maxHeight: 400,
+					quality: 0.85
+				});
+				formData.append('avatar', optimizedAvatar);
+			} else {
+				// Pick random default avatar
+				const randomAvatar = defaultAvatars[Math.floor(Math.random() * defaultAvatars.length)];
+				formData.append('defaultAvatarUrl', randomAvatar);
+			}
+
+			if (foodInput?.files?.[0]) {
+				feedbackMessage = 'Compressing dish photo for faster upload...';
+				const originalFood = foodInput.files[0];
+				const optimizedFood = await compressImage(originalFood, {
+					maxWidth: 1600,
+					maxHeight: 1600,
+					quality: 0.82
+				});
+				formData.append('foodImage', optimizedFood);
+			}
+
+			feedbackMessage = 'Uploading your entry to the anniversary archive...';
 			const res = await fetch('/api/submissions', {
 				method: 'POST',
 				body: formData
@@ -171,6 +190,9 @@
 				{#if foodPreviewUrl}
 					<div class="preview-box">
 						<img src={foodPreviewUrl} alt="Food Preview" />
+						{#if foodFileSizeText}
+							<p class="file-size-hint">📷 {foodFileSizeText}</p>
+						{/if}
 					</div>
 				{/if}
 			</div>
@@ -301,6 +323,12 @@
 		max-width: 200px;
 		border-radius: 8px;
 		margin-top: 8px;
+	}
+
+	.file-size-hint {
+		font-size: 0.8rem;
+		color: #94a3b8;
+		margin-top: 6px;
 	}
 
 	.feedback-msg {

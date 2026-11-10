@@ -32,7 +32,9 @@
 	// Authentication state
 	let authChecking = $state(true);
 	let isAuthenticated = $state(false);
-	let enteredKey = $state('');
+	let enteredUsername = $state('admin');
+	let enteredPassword = $state('');
+	let currentUser = $state<{ username: string; role: string } | null>(null);
 	let authError = $state('');
 	let isLoggingIn = $state(false);
 	let showPassword = $state(false);
@@ -58,12 +60,15 @@
 			const data = await res.json();
 			if (data.authenticated) {
 				isAuthenticated = true;
+				currentUser = data.user;
 				await loadSubmissions();
 			} else {
 				isAuthenticated = false;
+				currentUser = null;
 			}
 		} catch {
 			isAuthenticated = false;
+			currentUser = null;
 		} finally {
 			authChecking = false;
 		}
@@ -71,7 +76,7 @@
 
 	async function login(event: SubmitEvent) {
 		event.preventDefault();
-		if (!enteredKey.trim()) return;
+		if (!enteredPassword.trim()) return;
 
 		isLoggingIn = true;
 		authError = '';
@@ -80,16 +85,20 @@
 			const res = await fetch('/api/moderator/auth', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ key: enteredKey })
+				body: JSON.stringify({
+					username: enteredUsername.trim() || 'admin',
+					password: enteredPassword
+				})
 			});
 			const data = await res.json();
 
 			if (data.success) {
 				isAuthenticated = true;
-				enteredKey = '';
+				currentUser = data.user;
+				enteredPassword = '';
 				await loadSubmissions();
 			} else {
-				authError = data.error || 'Invalid moderator passkey';
+				authError = data.error || 'Invalid staff credentials';
 			}
 		} catch {
 			authError = 'Connection failed. Please try again.';
@@ -105,6 +114,7 @@
 			console.error('Logout error:', err);
 		} finally {
 			isAuthenticated = false;
+			currentUser = null;
 			submissions = [];
 			counts = { total: 0, pending: 0, approved: 0, denied: 0 };
 		}
@@ -238,33 +248,47 @@
 		<p>Checking staff authorization...</p>
 	</div>
 {:else if !isAuthenticated}
-	<!-- PASSKEY PROTECTION GATE -->
+	<!-- STAFF ACCOUNT SIGN-IN GATE -->
 	<div class="auth-gate-page">
 		<div class="auth-gate-card">
 			<div class="auth-wolf-icon">🐺</div>
 			<span class="auth-badge">STAFF AREA</span>
-			<h2>Moderator Passkey Required</h2>
+			<h2>Staff Sign-In</h2>
 			<p class="auth-desc">
-				Enter the project moderator passkey to review, approve, and manage submissions for Ookami
-				Mio's 8th Anniversary book.
+				Sign in with your staff account to review, approve, and manage submissions for Ookami Mio's
+				8th Anniversary book.
 			</p>
 
 			<form class="auth-form" onsubmit={login}>
+				<div class="form-group" style="margin-bottom: 14px;">
+					<label for="username-input">Staff Username</label>
+					<input
+						type="text"
+						id="username-input"
+						class="text-input"
+						placeholder="admin"
+						bind:value={enteredUsername}
+						autocomplete="username"
+						required
+					/>
+				</div>
+
 				<div class="form-group">
-					<label for="passkey-input">Moderator Passkey</label>
+					<label for="passkey-input">Staff Password</label>
 					<div class="passkey-wrapper">
 						<input
 							type={showPassword ? 'text' : 'password'}
 							id="passkey-input"
-							placeholder="Enter staff secret..."
-							bind:value={enteredKey}
+							placeholder="Enter staff password..."
+							bind:value={enteredPassword}
+							autocomplete="current-password"
 							required
 						/>
 						<button
 							type="button"
 							class="toggle-eye-btn"
 							onclick={() => (showPassword = !showPassword)}
-							aria-label={showPassword ? 'Hide passkey' : 'Show passkey'}
+							aria-label={showPassword ? 'Hide password' : 'Show password'}
 						>
 							{showPassword ? '🙈' : '👁️'}
 						</button>
@@ -278,7 +302,7 @@
 				{/if}
 
 				<button type="submit" class="unlock-btn" disabled={isLoggingIn}>
-					{isLoggingIn ? 'Verifying...' : 'Unlock Moderator Panel →'}
+					{isLoggingIn ? 'Signing In...' : 'Sign In to Staff Panel →'}
 				</button>
 			</form>
 
@@ -300,14 +324,16 @@
 				</p>
 			</div>
 			<div class="header-actions">
-				<span class="staff-badge">🛡️ Authenticated Staff</span>
+				<span class="staff-badge">
+					🛡️ @{currentUser?.username || 'admin'} ({currentUser?.role || 'staff'})
+				</span>
 				<a href={resolve('/')} class="view-site-btn">&larr; Live Book Site</a>
 				<a href={resolve('/submit')} class="view-site-btn">+ New Submission</a>
 				<button class="refresh-btn" onclick={loadSubmissions} disabled={isLoading}>
 					{isLoading ? 'Refreshing...' : '↻ Refresh'}
 				</button>
-				<button type="button" class="logout-btn" onclick={logout} title="Lock and end session">
-					🔒 Lock
+				<button type="button" class="logout-btn" onclick={logout} title="Log out and end session">
+					Sign Out
 				</button>
 			</div>
 		</header>
@@ -703,11 +729,31 @@
 	.auth-form {
 		text-align: left;
 	}
+	.auth-form label {
+		display: block;
+		font-size: 0.85rem;
+		font-weight: 600;
+		color: #cbd5e1;
+		margin-bottom: 6px;
+	}
+	.auth-form .text-input {
+		width: 100%;
+		padding: 11px 14px;
+		background: #0f0f18;
+		border: 1px solid rgba(255, 255, 255, 0.15);
+		border-radius: 6px;
+		color: #fff;
+		font-size: 0.95rem;
+		box-sizing: border-box;
+	}
+	.auth-form .text-input:focus {
+		outline: none;
+		border-color: #ffd700;
+	}
 	.passkey-wrapper {
 		position: relative;
 		display: flex;
 		align-items: center;
-		margin-top: 6px;
 	}
 	.passkey-wrapper input {
 		width: 100%;
@@ -717,6 +763,7 @@
 		border-radius: 6px;
 		color: #fff;
 		font-size: 0.95rem;
+		box-sizing: border-box;
 	}
 	.passkey-wrapper input:focus {
 		outline: none;

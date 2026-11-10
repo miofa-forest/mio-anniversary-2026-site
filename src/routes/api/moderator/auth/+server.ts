@@ -1,43 +1,50 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import {
-	getModeratorKey,
 	createSessionToken,
-	isModeratorAuthenticated,
+	getStaffSession,
+	verifyStaffCredentials,
 	MODERATOR_COOKIE_NAME
 } from '$lib/server/auth';
 
 /**
  * GET /api/moderator/auth
- * Checks if current user has an active, valid moderator session.
+ * Checks if current user has an active, valid staff moderator session.
  */
 export const GET: RequestHandler = async (event) => {
-	const authenticated = isModeratorAuthenticated(event);
+	const user = getStaffSession(event);
 	return json({
-		authenticated
+		authenticated: user !== null,
+		user: user
+			? {
+					username: user.username,
+					role: user.role
+				}
+			: null
 	});
 };
 
 /**
  * POST /api/moderator/auth
- * Verifies the provided moderator passkey and sets an HTTP-only session cookie.
+ * Verifies staff account credentials (username + password) and sets an HTTP-only session cookie.
  */
 export const POST: RequestHandler = async (event) => {
 	try {
 		const body = await event.request.json();
-		const passkey = (body.key as string)?.trim();
+		const username = (body.username as string)?.trim() || 'admin';
+		const password = (body.password as string) || (body.key as string);
 
-		if (!passkey) {
-			return json({ success: false, error: 'Passkey is required' }, { status: 400 });
+		if (!password) {
+			return json({ success: false, error: 'Staff account password is required' }, { status: 400 });
 		}
 
-		const expectedKey = getModeratorKey();
-		if (passkey !== expectedKey) {
-			return json({ success: false, error: 'Invalid moderator passkey' }, { status: 401 });
+		const staffUser = verifyStaffCredentials(username, password);
+		if (!staffUser) {
+			return json({ success: false, error: 'Invalid staff username or password' }, { status: 401 });
 		}
 
-		// Generate signed session token
-		const token = createSessionToken();
+		// Generate signed session token with username payload
+		const token = createSessionToken(staffUser.username);
 
 		// Set HTTP-only cookie (valid for 7 days)
 		event.cookies.set(MODERATOR_COOKIE_NAME, token, {
@@ -50,7 +57,8 @@ export const POST: RequestHandler = async (event) => {
 
 		return json({
 			success: true,
-			message: 'Moderator access granted'
+			user: staffUser,
+			message: `Welcome back, ${staffUser.username}!`
 		});
 	} catch {
 		return json({ success: false, error: 'Authentication request failed' }, { status: 500 });
