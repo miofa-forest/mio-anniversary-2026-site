@@ -243,6 +243,11 @@
 	});
 </script>
 
+<svelte:head>
+	<title>Staff Portal | My Mio Travel Book</title>
+	<meta name="robots" content="noindex, nofollow" />
+</svelte:head>
+
 {#if authChecking}
 	<div class="auth-loading-state">
 		<div class="spinner"></div>
@@ -461,7 +466,7 @@
 				<table class="submissions-table">
 					<thead>
 						<tr>
-							<th>Food Image</th>
+							<th>Photo / Image</th>
 							<th>Submitter & Region</th>
 							<th>Private ID / Contact</th>
 							<th>Anniversary Message</th>
@@ -473,7 +478,7 @@
 					<tbody>
 						{#each submissions as sub (sub.id)}
 							<tr class="status-row-{sub.status.toLowerCase()}">
-								<!-- 1. FOOD IMAGE THUMBNAIL -->
+								<!-- 1. PHOTO THUMBNAIL -->
 								<td class="photo-cell">
 									<button
 										type="button"
@@ -481,7 +486,7 @@
 										onclick={() => (previewPhotoItem = sub)}
 										title="Click to view full photo"
 									>
-										<img src={sub.photo} alt="Food dish" />
+										<img src={sub.photo} alt="Submission photo" />
 										<span class="zoom-pill">Zoom</span>
 									</button>
 								</td>
@@ -598,8 +603,8 @@
 						({deleteModalItem.user.country})?
 					</p>
 					<p class="modal-warning">
-						This will permanently remove the entry and delete its uploaded food image. This action
-						cannot be undone.
+						This will permanently remove the entry and delete its uploaded image. This action cannot
+						be undone.
 					</p>
 					<div class="modal-buttons">
 						<button
@@ -643,7 +648,7 @@
 					<button class="modal-close-x" onclick={() => (previewPhotoItem = null)} aria-label="Close"
 						>&times;</button
 					>
-					<img src={previewPhotoItem.photo} alt="Dish zoom" class="inspect-img" />
+					<img src={previewPhotoItem.photo} alt="Photo zoom" class="inspect-img" />
 					<div class="inspect-info">
 						<h3>
 							{previewPhotoItem.user.name || 'Anonymous Miofa'} &bull; {previewPhotoItem.user

@@ -276,7 +276,7 @@
 <!-- 1. TOP HERO GREETING BANNER -->
 <header class="hero-anniversary-banner">
 	<div class="banner-content">
-		<span class="subtitle">DECEMBER 2018 &bull; 8 YEARS WITH OUR OKAMI</span>
+		<span class="subtitle">DECEMBER 2018 &bull; 8 YEARS WITH OUR OSHI</span>
 		<h1 class="anniversary-heading">HAPPY 8TH ANNIVERSARY</h1>
 		<p class="anniversary-tagline">Ookami Mio &times; Miofa Community Commemorative Archive</p>
 		<a href="#book-section" class="scroll-down-btn">
@@ -292,8 +292,8 @@
 		<span class="date">GLOBAL FAN COMMEMORATION</span>
 		<h2>Off the gourd; My Mio Travel Book</h2>
 		<p style="margin: 0 auto; max-width: 680px;">
-			A collection of dishes and memories sent by fans worldwide. Click any photograph to read the
-			note on the back.
+			A collection of travel photos, local spots, and memories sent by fans worldwide. Click any
+			photograph to read the note on the back.
 		</p>
 	</section>
 
@@ -371,9 +371,9 @@
 								role="button"
 								tabindex="0"
 								onkeydown={(e) => e.key === 'Enter' && openDetailModal(leaf.front, e)}
-								aria-label="Inspect dish and message"
+								aria-label="Inspect photo and message"
 							>
-								<img src={leaf.front.img} alt="Dish {leaf.front.caption}" />
+								<img src={leaf.front.img} alt="Photo {leaf.front.caption}" />
 								<div class="photo-card-tag">
 									<span>{leaf.front.author} &bull; {leaf.front.country}</span>
 								</div>
@@ -395,9 +395,9 @@
 									role="button"
 									tabindex="0"
 									onkeydown={(e) => e.key === 'Enter' && openDetailModal(leaf.back!, e)}
-									aria-label="Inspect dish and message"
+									aria-label="Inspect photo and message"
 								>
-									<img src={leaf.back.img} alt="Dish {leaf.back.caption}" />
+									<img src={leaf.back.img} alt="Photo {leaf.back.caption}" />
 									<div class="photo-card-tag">
 										<span>{leaf.back.author} &bull; {leaf.back.country}</span>
 									</div>
@@ -405,11 +405,13 @@
 								<p class="caption">{leaf.back.caption}</p>
 							{:else}
 								<div class="empty-leaf-content">
-									<p class="empty-prompt">Submit your regional dish to fill this page!</p>
+									<p class="empty-prompt">
+										Submit your travel photo or local spot to fill this page!
+									</p>
 									<a
 										href={resolve('/submit')}
 										class="submit-mini-btn"
-										onclick={(e) => e.stopPropagation()}>+ Add Food Photo</a
+										onclick={(e) => e.stopPropagation()}>+ Add Travel Photo</a
 									>
 								</div>
 							{/if}
@@ -469,8 +471,10 @@
 	<!-- 3. SUBMISSION CALL TO ACTION LINK -->
 	<section class="action-banner" style="margin-top: 50px; width: 100%; max-width: 900px;">
 		<div>
-			<h3>Want your local dish featured in the book?</h3>
-			<p>Submit your food photo, region, and optional anniversary message.</p>
+			<h3>Want your travel memories or local spot featured in the book?</h3>
+			<p>
+				Submit your travel photo, scenery, or regional dish with an optional anniversary message.
+			</p>
 		</div>
 		<div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
 			<a href={resolve('/submit')} class="primary-btn">Go to Submission Page &rarr;</a>
@@ -488,7 +492,7 @@
 				<!-- LEFT SIDE: PHOTO -->
 				<div class="postcard-front">
 					<div class="postcard-photo-frame">
-						<img src={selectedEntry.img} alt="Dish" />
+						<img src={selectedEntry.img} alt="Travel Photo" />
 					</div>
 					<div class="postcard-photo-meta">
 						<span class="entry-index">{selectedEntry.caption}</span>

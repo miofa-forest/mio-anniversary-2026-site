@@ -77,7 +77,7 @@
 			}
 
 			if (foodInput?.files?.[0]) {
-				feedbackMessage = 'Compressing dish photo for faster upload...';
+				feedbackMessage = 'Compressing photo for faster upload...';
 				const originalFood = foodInput.files[0];
 				const optimizedFood = await compressImage(originalFood, {
 					maxWidth: 1600,
@@ -120,20 +120,38 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Submit Your Entry | My Mio Travel Book</title>
+	<meta
+		name="description"
+		content="Share your travel photos, local scenery, or regional dishes to celebrate Ookami Mio's 8th Anniversary."
+	/>
+	<meta property="og:title" content="Submit Your Entry | My Mio Travel Book" />
+	<meta
+		property="og:description"
+		content="Share your travel photos, local scenery, or regional dishes to celebrate Ookami Mio's 8th Anniversary."
+	/>
+	<meta name="twitter:title" content="Submit Your Entry | My Mio Travel Book" />
+	<meta
+		name="twitter:description"
+		content="Share your travel photos, local scenery, or regional dishes to celebrate Ookami Mio's 8th Anniversary."
+	/>
+</svelte:head>
+
 <main class="page-container">
 	<section class="info-section">
 		<div class="breadcrumb-nav">
 			<a href={resolve('/')} class="back-link">&larr; Back to Anniversary Album</a>
 		</div>
 		<span class="date">8TH ANNIVERSARY &bull; COMMEMORATIVE ALBUM</span>
-		<h2>Submit to the Travel & Food Collection</h2>
+		<h2>Submit to the Travel & Memory Collection</h2>
 		<p>
-			Share a photo of food or a local dish from your region to be bound into Mio's 8th Anniversary
-			commemorative book.
+			Share a photo of your local area, scenic spot, or regional food to be bound into Mio's 8th
+			Anniversary commemorative book.
 		</p>
 		<p class="already-submitted-note">
 			Already submitted? Click the <strong>gear icon</strong> in the bottom-left corner to check, edit,
-			or withdraw your dish anytime.
+			or withdraw your entry anytime.
 		</p>
 
 		<form class="submission-form" onsubmit={handleSubmit}>
@@ -180,9 +198,11 @@
 				/>
 			</div>
 
-			<!-- 4. PICTURE OF FOOD (REQUIRED) -->
+			<!-- 4. PICTURE OF FOOD / TRAVEL (REQUIRED) -->
 			<div class="form-group">
-				<label for="food-input">Picture of Food / Local Dish <span class="required">*</span></label>
+				<label for="food-input"
+					>Photo of Travel Spot, Scenery, or Local Dish <span class="required">*</span></label
+				>
 				<input
 					type="file"
 					id="food-input"
@@ -193,7 +213,7 @@
 				/>
 				{#if foodPreviewUrl}
 					<div class="preview-box">
-						<img src={foodPreviewUrl} alt="Food Preview" />
+						<img src={foodPreviewUrl} alt="Photo Preview" />
 						{#if foodFileSizeText}
 							<p class="file-size-hint">{foodFileSizeText}</p>
 						{/if}
@@ -248,14 +268,14 @@
 			<!-- 6. MESSAGE (OPTIONAL) -->
 			<div class="form-group" style="margin-top: 25px;">
 				<label for="message-input">
-					Message / Dish Note <span class="optional"
+					Message / Travel Note <span class="optional"
 						>(Optional &bull; Defaults to a generic 8th anniversary greeting)</span
 					>
 				</label>
 				<textarea
 					id="message-input"
 					rows="4"
-					placeholder="Write your note or describe your dish..."
+					placeholder="Write your anniversary note, travel memory, or thoughts about your photo..."
 					bind:value={message}></textarea>
 			</div>
 

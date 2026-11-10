@@ -349,7 +349,7 @@
 				<div class="portal-title-group">
 					<div>
 						<h2>Account & Settings</h2>
-						<p class="portal-sub">Manage your dish submission or sign in as staff</p>
+						<p class="portal-sub">Manage your submission or sign in as staff</p>
 					</div>
 				</div>
 				<button class="portal-close-btn" onclick={() => (isOpen = false)} aria-label="Close"
@@ -395,8 +395,8 @@
 						<!-- FAN LOGIN FORM -->
 						<div class="login-intro">
 							<p>
-								Already submitted a dish? Enter your submission username & password to view its
-								status, edit your message, or update your food photo.
+								Already submitted? Enter your submission username & password to view its status,
+								edit your message, or update your photo.
 							</p>
 						</div>
 
@@ -445,7 +445,8 @@
 
 							<p class="tab-hint">
 								Haven't submitted yet?
-								<a href={resolve('/submit')} onclick={() => (isOpen = false)}>Submit a dish here</a>
+								<a href={resolve('/submit')} onclick={() => (isOpen = false)}>Submit a photo here</a
+								>
 							</p>
 						</form>
 					{:else if fanSubmission}
@@ -454,7 +455,7 @@
 							<!-- EDIT MODE -->
 							<form class="portal-form edit-form" onsubmit={saveFanEdits}>
 								<div class="edit-header">
-									<h3>Edit Your Dish Submission</h3>
+									<h3>Edit Your Submission</h3>
 									<p class="edit-sub">Updates will be saved to the 8th anniversary book archive.</p>
 								</div>
 
@@ -490,7 +491,7 @@
 
 								<div class="form-group">
 									<label for="edit-photo">
-										Replace Dish Photo <span class="optional">(Optional)</span>
+										Replace Photo <span class="optional">(Optional)</span>
 									</label>
 									<input
 										type="file"
@@ -500,7 +501,7 @@
 									/>
 									{#if editPhotoPreview}
 										<div class="edit-preview-box">
-											<img src={editPhotoPreview} alt="New food preview" />
+											<img src={editPhotoPreview} alt="New photo preview" />
 											{#if editFileSizeText}
 												<span class="file-size-tag">{editFileSizeText}</span>
 											{/if}
@@ -540,7 +541,7 @@
 								</div>
 
 								<div class="entry-preview-card">
-									<img src={fanSubmission.photo} alt="Submitted dish" class="entry-dish-thumb" />
+									<img src={fanSubmission.photo} alt="Submitted photo" class="entry-dish-thumb" />
 									<div class="entry-details">
 										<div class="entry-author-row">
 											<img src={fanSubmission.avatar} alt="Avatar" class="entry-avatar-thumb" />
@@ -564,7 +565,7 @@
 									<div class="withdraw-confirm-box">
 										<p>
 											<strong>Are you sure you want to withdraw this entry?</strong>
-											This will permanently delete your food picture and remove it from the collection.
+											This will permanently delete your photo and remove it from the collection.
 										</p>
 										<div class="withdraw-actions">
 											<button
