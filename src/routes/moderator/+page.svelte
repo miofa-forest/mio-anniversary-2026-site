@@ -8,6 +8,7 @@
 		submittedAt: string;
 		updatedAt: string;
 		status: 'PENDING' | 'APPROVED' | 'DENIED';
+		moderatedBy?: string;
 		user: {
 			name?: string;
 			profilePic?: string;
@@ -526,6 +527,9 @@
 									<span class="status-badge badge-{sub.status.toLowerCase()}">
 										{sub.status}
 									</span>
+									{#if sub.moderatedBy}
+										<div class="moderated-by-label">by @{sub.moderatedBy}</div>
+									{/if}
 								</td>
 
 								<!-- 7. ACTIONS -->
@@ -1209,6 +1213,11 @@
 		background: rgba(239, 68, 68, 0.2);
 		border: 1px solid #ef4444;
 		color: #f87171;
+	}
+	.moderated-by-label {
+		font-size: 0.7rem;
+		color: #94a3b8;
+		margin-top: 4px;
 	}
 
 	/* ACTION BUTTONS */

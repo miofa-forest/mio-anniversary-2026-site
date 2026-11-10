@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { resolve } from '$app/paths';
 
 	interface AlbumEntry {
@@ -96,18 +97,63 @@
 		}
 	]);
 
-	// Dynamically group album entries into 2-sided book leaves
+	// Region filter & mobile swipe state
+	let selectedRegion = $state('All');
+	let touchStartX = 0;
+	let touchStartY = 0;
+
+	let availableRegions = $derived.by(() => {
+		const regions = new SvelteSet<string>();
+		albumPages.forEach((p) => {
+			if (p.country) regions.add(p.country);
+		});
+		return ['All', ...Array.from(regions).sort()];
+	});
+
+	let displayedPages = $derived.by(() => {
+		if (selectedRegion === 'All') return albumPages;
+		return albumPages.filter((p) => p.country === selectedRegion);
+	});
+
+	// Dynamically group displayed entries into 2-sided book leaves
 	let leaves = $derived.by(() => {
 		const pairs: { leafIndex: number; front: AlbumEntry; back: AlbumEntry | null }[] = [];
-		for (let i = 0; i < albumPages.length; i += 2) {
+		for (let i = 0; i < displayedPages.length; i += 2) {
 			pairs.push({
 				leafIndex: Math.floor(i / 2) + 1,
-				front: albumPages[i],
-				back: i + 1 < albumPages.length ? albumPages[i + 1] : null
+				front: displayedPages[i],
+				back: i + 1 < displayedPages.length ? displayedPages[i + 1] : null
 			});
 		}
 		return pairs;
 	});
+
+	function selectRegion(region: string) {
+		selectedRegion = region;
+		currentSpread = 0;
+		tick().then(() => updatePageZIndexes());
+	}
+
+	function handleTouchStart(e: TouchEvent) {
+		if (e.touches.length === 1) {
+			touchStartX = e.touches[0].clientX;
+			touchStartY = e.touches[0].clientY;
+		}
+	}
+
+	function handleTouchEnd(e: TouchEvent) {
+		if (e.changedTouches.length === 1) {
+			const deltaX = e.changedTouches[0].clientX - touchStartX;
+			const deltaY = e.changedTouches[0].clientY - touchStartY;
+			if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY)) {
+				if (deltaX < 0) {
+					flipNext();
+				} else {
+					flipPrev();
+				}
+			}
+		}
+	}
 
 	function updatePageZIndexes() {
 		if (!albumElement) return;
@@ -244,8 +290,34 @@
 		</div>
 	</div>
 
+	<!-- REGION FILTER BAR -->
+	{#if availableRegions.length > 2}
+		<div class="region-filter-bar">
+			<span class="region-filter-label">Browse by Region:</span>
+			<div class="region-pills">
+				{#each availableRegions as region (region)}
+					<button
+						type="button"
+						class="region-pill-btn"
+						class:active={selectedRegion === region}
+						onclick={() => selectRegion(region)}
+					>
+						{region}
+						<span class="pill-count">
+							{#if region === 'All'}
+								{albumPages.length}
+							{:else}
+								{albumPages.filter((p) => p.country === region).length}
+							{/if}
+						</span>
+					</button>
+				{/each}
+			</div>
+		</div>
+	{/if}
+
 	<!-- 3D BOOK STAGE -->
-	<div class="album-stage">
+	<div class="album-stage" ontouchstart={handleTouchStart} ontouchend={handleTouchEnd}>
 		<div
 			bind:this={albumElement}
 			class="album mode-{mode}"
@@ -480,6 +552,66 @@
 		flex-direction: column;
 		align-items: center;
 		padding-top: 40px;
+	}
+
+	/* REGION FILTER BAR */
+	.region-filter-bar {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 12px;
+		flex-wrap: wrap;
+		margin: 15px auto 5px;
+		max-width: 900px;
+		padding: 0 15px;
+	}
+
+	.region-filter-label {
+		font-size: 0.8rem;
+		font-weight: 700;
+		color: #94a3b8;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.region-pills {
+		display: flex;
+		gap: 6px;
+		flex-wrap: wrap;
+		justify-content: center;
+	}
+
+	.region-pill-btn {
+		background: rgba(255, 255, 255, 0.06);
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		color: #cbd5e1;
+		font-size: 0.8rem;
+		font-weight: 600;
+		padding: 4px 12px;
+		border-radius: 16px;
+		cursor: pointer;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		transition: all 0.2s;
+	}
+
+	.region-pill-btn:hover {
+		background: rgba(255, 255, 255, 0.15);
+		color: #fff;
+		border-color: rgba(255, 215, 0, 0.4);
+	}
+
+	.region-pill-btn.active {
+		background: #c92a42;
+		color: #fff;
+		border-color: #c92a42;
+	}
+
+	.pill-count {
+		font-size: 0.72rem;
+		opacity: 0.75;
+		font-weight: normal;
 	}
 
 	.album-controls-bar {

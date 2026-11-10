@@ -1,6 +1,8 @@
 import { randomUUID, scryptSync, randomBytes, timingSafeEqual } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { env } from '$env/dynamic/private';
+import { PostgresSubmissionStore } from '$lib/server/postgresStore';
 
 /**
  * The type of contact information submitted.
@@ -59,6 +61,7 @@ export interface Submission {
 	readonly updatedAt: Date;
 	readonly data: SubmissionData;
 	readonly status: SubmissionStatus;
+	readonly moderatedBy?: string;
 }
 
 /**
@@ -90,7 +93,7 @@ export interface SubmissionStore {
 	getSubmissions(): Promise<readonly Submission[]>;
 	getSubmission(id: string): Promise<Submission | null>;
 	findSubmissionByUsername(username: string): Promise<StoredSubmission | null>;
-	updateStatus(id: string, status: SubmissionStatus): Promise<void>;
+	updateStatus(id: string, status: SubmissionStatus, moderatedBy?: string): Promise<void>;
 	deleteSubmission(id: string): Promise<Submission | null>;
 }
 
@@ -410,7 +413,7 @@ export class FileSubmissionStore implements SubmissionStore {
 		return found || null;
 	}
 
-	async updateStatus(id: string, status: SubmissionStatus): Promise<void> {
+	async updateStatus(id: string, status: SubmissionStatus, moderatedBy?: string): Promise<void> {
 		this.ensureLoaded();
 		const idx = this.submissions.findIndex((s) => s.id === id);
 		if (idx === -1) {
@@ -419,6 +422,7 @@ export class FileSubmissionStore implements SubmissionStore {
 		this.submissions[idx] = {
 			...this.submissions[idx],
 			status,
+			moderatedBy: moderatedBy || this.submissions[idx].moderatedBy,
 			updatedAt: new Date()
 		};
 		this.saveToDisk();
@@ -441,10 +445,25 @@ let store: SubmissionStore | null = null;
 
 /**
  * Retrieves the active submission store, initializing it if needed.
+ * Automatically chooses PostgresSubmissionStore if PostgreSQL environment is present,
+ * or falls back to FileSubmissionStore for local development.
  */
 export function getStore(): SubmissionStore {
 	if (!store) {
-		store = new FileSubmissionStore();
+		const usePostgres = !!(env.DATABASE_URL || env.DATABASE_HOST);
+		if (usePostgres) {
+			try {
+				store = new PostgresSubmissionStore();
+			} catch (err) {
+				console.error(
+					'Failed to initialize PostgresSubmissionStore, falling back to FileSubmissionStore:',
+					err
+				);
+				store = new FileSubmissionStore();
+			}
+		} else {
+			store = new FileSubmissionStore();
+		}
 	}
 	return store;
 }

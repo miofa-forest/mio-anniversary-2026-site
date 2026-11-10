@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getStore, SubmissionStatus } from '$lib/submissions';
-import { isModeratorAuthenticated } from '$lib/server/auth';
+import { isModeratorAuthenticated, getStaffSession } from '$lib/server/auth';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
@@ -65,6 +65,7 @@ export const GET: RequestHandler = async (event) => {
 		submittedAt: s.submittedAt,
 		updatedAt: s.updatedAt,
 		status: s.status,
+		moderatedBy: s.moderatedBy,
 		user: {
 			name: s.data.user.name,
 			profilePic: s.data.user.profilePic,
@@ -108,7 +109,8 @@ export const PATCH: RequestHandler = async (event) => {
 			return json({ success: false, error: 'Invalid status value' }, { status: 400 });
 		}
 
-		await getStore().updateStatus(id, status);
+		const staffUser = getStaffSession(event);
+		await getStore().updateStatus(id, status, staffUser?.username || 'admin');
 
 		return json({
 			success: true,
