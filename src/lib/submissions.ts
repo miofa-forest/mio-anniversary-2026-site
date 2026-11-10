@@ -86,8 +86,10 @@ export class InvalidSubmissionToken extends Error {
 export interface SubmissionStore {
 	addSubmission(data: SubmissionData): Promise<readonly [id: string, token: string]>;
 	editSubmission(id: string, token: string, data: SubmissionData): Promise<void>;
+	updateSubmission(id: string, data: SubmissionData, newStatus?: SubmissionStatus): Promise<void>;
 	getSubmissions(): Promise<readonly Submission[]>;
 	getSubmission(id: string): Promise<Submission | null>;
+	findSubmissionByUsername(username: string): Promise<StoredSubmission | null>;
 	updateStatus(id: string, status: SubmissionStatus): Promise<void>;
 	deleteSubmission(id: string): Promise<Submission | null>;
 }
@@ -361,6 +363,40 @@ export class FileSubmissionStore implements SubmissionStore {
 			}
 		};
 		this.saveToDisk();
+	}
+
+	async updateSubmission(
+		id: string,
+		data: SubmissionData,
+		newStatus?: SubmissionStatus
+	): Promise<void> {
+		this.ensureLoaded();
+		const idx = this.submissions.findIndex((v) => v.id === id);
+		if (idx === -1) {
+			throw new InvalidSubmissionId();
+		}
+
+		const existing = this.submissions[idx];
+		this.submissions[idx] = {
+			...existing,
+			updatedAt: new Date(),
+			status: newStatus !== undefined ? newStatus : existing.status,
+			data: {
+				...data,
+				user: {
+					...data.user,
+					passwordHash: existing.data.user.passwordHash || data.user.passwordHash
+				}
+			}
+		};
+		this.saveToDisk();
+	}
+
+	async findSubmissionByUsername(username: string): Promise<StoredSubmission | null> {
+		this.ensureLoaded();
+		const cleanUser = username.trim().toLowerCase();
+		const found = this.submissions.find((s) => s.data.user.username?.toLowerCase() === cleanUser);
+		return found || null;
 	}
 
 	async getSubmissions(): Promise<readonly Submission[]> {

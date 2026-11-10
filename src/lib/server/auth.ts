@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { RequestEvent } from '@sveltejs/kit';
 
 export const MODERATOR_COOKIE_NAME = 'mod_session';
+export const FAN_COOKIE_NAME = 'fan_session';
 
 export interface StaffUser {
 	username: string;
@@ -149,4 +150,70 @@ export function getStaffSession(event: RequestEvent): StaffUser | null {
  */
 export function isModeratorAuthenticated(event: RequestEvent): boolean {
 	return getStaffSession(event) !== null;
+}
+
+/**
+ * Creates an HMAC-signed session token for a fan managing their submission.
+ */
+export function createFanToken(submissionId: string, username: string): string {
+	const timestamp = Date.now();
+	const payload = Buffer.from(
+		JSON.stringify({ sid: submissionId, u: username, t: timestamp })
+	).toString('base64url');
+	const hmac = createHmac('sha256', getSecretSignKey());
+	hmac.update(`fan_auth_${payload}`);
+	const signature = hmac.digest('base64url');
+	return `${payload}.${signature}`;
+}
+
+/**
+ * Validates a fan session token and returns the decoded submissionId and username.
+ */
+export function verifyFanToken(token: string): { submissionId: string; username: string } | null {
+	if (!token || !token.includes('.')) return null;
+	const [payload, signature] = token.split('.');
+	if (!payload || !signature) return null;
+
+	const hmac = createHmac('sha256', getSecretSignKey());
+	hmac.update(`fan_auth_${payload}`);
+	const expectedSignature = hmac.digest('base64url');
+
+	try {
+		const validSig = timingSafeEqual(
+			Buffer.from(signature, 'utf-8'),
+			Buffer.from(expectedSignature, 'utf-8')
+		);
+		if (!validSig) return null;
+
+		const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf-8'));
+		if (!decoded || typeof decoded.sid !== 'string' || typeof decoded.u !== 'string') {
+			return null;
+		}
+
+		// Valid for 30 days
+		const age = Date.now() - decoded.t;
+		if (isNaN(age) || age < 0 || age > 30 * 24 * 60 * 60 * 1000) {
+			return null;
+		}
+
+		return {
+			submissionId: decoded.sid,
+			username: decoded.u
+		};
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Extracts the authenticated fan submission session from cookies or headers.
+ */
+export function getFanSession(
+	event: RequestEvent
+): { submissionId: string; username: string } | null {
+	const cookieToken = event.cookies.get(FAN_COOKIE_NAME);
+	if (cookieToken) {
+		return verifyFanToken(cookieToken);
+	}
+	return null;
 }

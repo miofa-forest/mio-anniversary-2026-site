@@ -131,6 +131,10 @@
 			Share a photo of food or a local dish from your region to be bound into Mio's 8th Anniversary
 			commemorative book.
 		</p>
+		<p class="already-submitted-note">
+			Already submitted? Click the <strong>⚙️ gear icon</strong> in the bottom-left corner to check, edit,
+			or withdraw your dish anytime.
+		</p>
 
 		<form class="submission-form" onsubmit={handleSubmit}>
 			<!-- 1. NAME (OPTIONAL) -->
@@ -271,6 +275,15 @@
 <style>
 	.breadcrumb-nav {
 		margin-bottom: 20px;
+	}
+	.already-submitted-note {
+		margin: -5px 0 25px;
+		font-size: 0.85rem;
+		color: #cbd5e1;
+		background: rgba(255, 215, 0, 0.08);
+		border-left: 3px solid #ffd700;
+		padding: 8px 14px;
+		border-radius: 4px;
 	}
 	.back-link {
 		color: #e2e8f0;
