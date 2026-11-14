@@ -1,24 +1,24 @@
-import { randomUUID } from 'crypto';
+import { randomUUID, scryptSync, randomBytes, timingSafeEqual } from 'node:crypto';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { env } from '$env/dynamic/private';
+import { PostgresSubmissionStore } from '$lib/server/postgresStore';
 
 /**
  * The type of contact information submitted.
  */
 export enum ContactType {
-	/** A Twitter handle */
 	TWITTER = 'TWITTER',
-	/** A Discord username */
 	DISCORD = 'DISCORD',
-	/** An email address */
-	EMAIL = 'EMAIL'
+	EMAIL = 'EMAIL',
+	OTHER = 'OTHER'
 }
 
 /**
  * A user's contact information.
  */
 export interface Contact {
-	/** The type of contact */
 	readonly type: ContactType;
-	/** The information */
 	readonly info: string;
 }
 
@@ -26,25 +26,20 @@ export interface Contact {
  * A user's information.
  */
 export interface User {
-	/** The user's name */
 	readonly name?: string;
-	/** Reference to the user's profile picture */
 	readonly profilePic?: string;
-	/** The user's contact information */
 	readonly contact?: Contact;
-	/** The user's country */
 	readonly country?: string;
+	readonly username?: string;
+	readonly passwordHash?: string;
 }
 
 /**
  * Data submitted by a user.
  */
 export interface SubmissionData {
-	/** The submitting user's information */
 	readonly user: User;
-	/** The submitted message */
 	readonly message: string;
-	/** Reference to the submitted photo */
 	readonly photo: string;
 }
 
@@ -52,11 +47,8 @@ export interface SubmissionData {
  * Status of a submission.
  */
 export enum SubmissionStatus {
-	/** The submission is pending approval by moderators */
 	PENDING = 'PENDING',
-	/** The submission was approved by moderators */
 	APPROVED = 'APPROVED',
-	/** The submission was rejected by moderators */
 	DENIED = 'DENIED'
 }
 
@@ -64,16 +56,12 @@ export enum SubmissionStatus {
  * A submission in the system.
  */
 export interface Submission {
-	/** The submission ID */
 	readonly id: string;
-	/** When the submission was created */
 	readonly submittedAt: Date;
-	/** The last time the submission was edited */
 	readonly updatedAt: Date;
-	/** The submission data */
 	readonly data: SubmissionData;
-	/** The status of the submission */
 	readonly status: SubmissionStatus;
+	readonly moderatedBy?: string;
 }
 
 /**
@@ -86,7 +74,7 @@ export class InvalidSubmissionId extends Error {
 }
 
 /**
- * Error thrown if an edit is attempted with the
+ * Error thrown if an edit is attempted with an invalid token.
  */
 export class InvalidSubmissionToken extends Error {
 	constructor() {
@@ -95,134 +83,387 @@ export class InvalidSubmissionToken extends Error {
 }
 
 /**
- * Storage for submissions.
+ * Storage interface for submissions.
+ * Any future database (PostgreSQL, Supabase, SQLite, etc.) will implement this interface.
  */
 export interface SubmissionStore {
-	/**
-	 * Adds a new submission.
-	 *
-	 * @param data The submission data
-	 * @returns The ID and token of the new submission
-	 */
 	addSubmission(data: SubmissionData): Promise<readonly [id: string, token: string]>;
-
-	/**
-	 * Edits an existing submission.
-	 *
-	 * @param id The submission ID
-	 * @param token The edit token for the submission
-	 * @param data The new submission data
-	 * @throws {InvalidSubmissionId} If there is no submission with the given ID
-	 * @throws {InvalidSubmissionToken} If the submission token does not match
-	 */
 	editSubmission(id: string, token: string, data: SubmissionData): Promise<void>;
-
-	/**
-	 * Retrieves the existing submissions.
-	 *
-	 * @returns The submissions
-	 */
+	updateSubmission(id: string, data: SubmissionData, newStatus?: SubmissionStatus): Promise<void>;
 	getSubmissions(): Promise<readonly Submission[]>;
+	getSubmission(id: string): Promise<Submission | null>;
+	findSubmissionByUsername(username: string): Promise<StoredSubmission | null>;
+	updateStatus(id: string, status: SubmissionStatus, moderatedBy?: string): Promise<void>;
+	deleteSubmission(id: string): Promise<Submission | null>;
 }
 
-/**
- * Submission stored in-memory for testing.
- */
-interface TestSubmission extends Submission {
-	/** The edit token. */
+export interface StoredSubmission extends Submission {
 	token: string;
 }
 
 /**
- * In-memory submission store used for testing.
+ * Password hashing utility using built-in Node crypto (scrypt).
  */
-class TestSubmissionStore implements SubmissionStore {
-	/** Submission storage */
-	#submissions: TestSubmission[] = [
-		{
-			id: 'aaa',
-			token: 'abc',
-			submittedAt: new Date(),
-			updatedAt: new Date(),
-			data: {
-				user: {
-					name: 'Test user 1'
-				},
-				message: 'My message',
-				photo: 'abcde.png'
+export function hashPassword(password: string): string {
+	const salt = randomBytes(16).toString('hex');
+	const hash = scryptSync(password, salt, 32).toString('hex');
+	return `${salt}:${hash}`;
+}
+
+export function verifyPassword(password: string, storedHash: string): boolean {
+	const [salt, key] = storedHash.split(':');
+	if (!salt || !key) return false;
+	const hashedBuffer = scryptSync(password, salt, 32);
+	const keyBuffer = Buffer.from(key, 'hex');
+	return timingSafeEqual(hashedBuffer, keyBuffer);
+}
+
+/**
+ * Seed entries inspired by Miofa community to ensure initial display is populated.
+ */
+const INITIAL_SEED_SUBMISSIONS: StoredSubmission[] = [
+	{
+		id: 'seed-1',
+		token: 'token-seed-1',
+		submittedAt: new Date('2026-08-15T10:00:00Z'),
+		updatedAt: new Date('2026-08-15T10:00:00Z'),
+		status: SubmissionStatus.APPROVED,
+		data: {
+			user: {
+				name: 'Miofa1',
+				country: 'Japan',
+				profilePic: '/user/m1.jpg',
+				contact: { type: ContactType.TWITTER, info: '@miofa_jp' },
+				username: 'miofa1'
 			},
-			status: SubmissionStatus.PENDING
-		},
-		{
-			id: 'bbb',
-			token: 'def',
-			submittedAt: new Date(),
-			updatedAt: new Date(),
-			data: {
-				user: {
-					country: 'USA'
-				},
-				message: 'Other submission',
-				photo: '22222.png'
-			},
-			status: SubmissionStatus.DENIED
+			message: 'Happy 8th Anniversary Mio mama! Hope you enjoy this hot bowl of ramen!',
+			photo: '/album assets/photo1.png'
 		}
-	];
+	},
+	{
+		id: 'seed-2',
+		token: 'token-seed-2',
+		submittedAt: new Date('2026-08-15T11:00:00Z'),
+		updatedAt: new Date('2026-08-15T11:00:00Z'),
+		status: SubmissionStatus.APPROVED,
+		data: {
+			user: {
+				name: 'Anonymous Miofa',
+				country: 'Philippines',
+				profilePic: '/user/m1.jpg',
+				contact: { type: ContactType.DISCORD, info: 'miofa_ph#1234' },
+				username: 'anon_ph'
+			},
+			message: 'Warm forest stew from our province! Thank you for 8 wonderful years of smiles.',
+			photo: '/album assets/photo1.png'
+		}
+	},
+	{
+		id: 'seed-3',
+		token: 'token-seed-3',
+		submittedAt: new Date('2026-08-16T08:00:00Z'),
+		updatedAt: new Date('2026-08-16T08:00:00Z'),
+		status: SubmissionStatus.APPROVED,
+		data: {
+			user: {
+				name: 'KuroTae',
+				country: 'USA',
+				profilePic: '/user/m1.jpg',
+				contact: { type: ContactType.TWITTER, info: '@kurotae' },
+				username: 'kurotae'
+			},
+			message: 'Fresh homemade pancakes! Best paired with your morning streams.',
+			photo: '/album assets/photo1.png'
+		}
+	},
+	{
+		id: 'seed-4',
+		token: 'token-seed-4',
+		submittedAt: new Date('2026-08-16T14:30:00Z'),
+		updatedAt: new Date('2026-08-16T14:30:00Z'),
+		status: SubmissionStatus.APPROVED,
+		data: {
+			user: {
+				name: 'Miofa_Global',
+				country: 'Indonesia',
+				profilePic: '/user/m1.jpg',
+				contact: { type: ContactType.DISCORD, info: 'global_fan#5678' },
+				username: 'miofa_global'
+			},
+			message: 'Spicy satay skewers! Sending warm wishes from overseas!',
+			photo: '/album assets/photo1.png'
+		}
+	},
+	{
+		id: 'seed-5',
+		token: 'token-seed-5',
+		submittedAt: new Date('2026-08-17T09:15:00Z'),
+		updatedAt: new Date('2026-08-17T09:15:00Z'),
+		status: SubmissionStatus.APPROVED,
+		data: {
+			user: {
+				name: 'TaigaFan',
+				country: 'Canada',
+				profilePic: '/user/m1.jpg',
+				contact: { type: ContactType.EMAIL, info: 'taiga@example.com' },
+				username: 'taigafan'
+			},
+			message: 'Traditional maple pastries to celebrate your milestone.',
+			photo: '/album assets/photo1.png'
+		}
+	},
+	{
+		id: 'seed-6',
+		token: 'token-seed-6',
+		submittedAt: new Date('2026-08-17T18:20:00Z'),
+		updatedAt: new Date('2026-08-17T18:20:00Z'),
+		status: SubmissionStatus.APPROVED,
+		data: {
+			user: {
+				name: 'Sparky',
+				country: 'Germany',
+				profilePic: '/user/m1.jpg',
+				contact: { type: ContactType.DISCORD, info: 'sparky#9999' },
+				username: 'sparky_de'
+			},
+			message: 'Fresh bakery bread and sausages! Always cheering for you, Mio!',
+			photo: '/album assets/photo1.png'
+		}
+	},
+	{
+		id: 'seed-7',
+		token: 'token-seed-7',
+		submittedAt: new Date('2026-08-18T12:00:00Z'),
+		updatedAt: new Date('2026-08-18T12:00:00Z'),
+		status: SubmissionStatus.APPROVED,
+		data: {
+			user: {
+				name: 'NightWolf',
+				country: 'Taiwan',
+				profilePic: '/user/m1.jpg',
+				contact: { type: ContactType.TWITTER, info: '@nightwolf_tw' },
+				username: 'nightwolf'
+			},
+			message: 'Sweet bubble tea and street snacks for your anniversary concert!',
+			photo: '/album assets/photo1.png'
+		}
+	},
+	{
+		id: 'seed-8',
+		token: 'token-seed-8',
+		submittedAt: new Date('2026-08-18T15:45:00Z'),
+		updatedAt: new Date('2026-08-18T15:45:00Z'),
+		status: SubmissionStatus.APPROVED,
+		data: {
+			user: {
+				name: 'OuroMio',
+				country: 'United Kingdom',
+				profilePic: '/user/m1.jpg',
+				contact: { type: ContactType.EMAIL, info: 'ouromio@example.co.uk' },
+				username: 'ouromio'
+			},
+			message: 'Afternoon forest tea blend. Here is to many more anniversaries ahead!',
+			photo: '/album assets/photo1.png'
+		}
+	}
+];
+
+/**
+ * File-backed submission store that persists to JSON on disk.
+ * Easily swappable to PostgreSQL or any database later.
+ */
+export class FileSubmissionStore implements SubmissionStore {
+	private filePath: string;
+	private submissions: StoredSubmission[] = [];
+	private initialized = false;
+
+	constructor(customPath?: string) {
+		this.filePath = customPath || path.resolve(process.cwd(), 'data', 'submissions.json');
+	}
+
+	private ensureLoaded(): void {
+		if (this.initialized) return;
+
+		try {
+			const dir = path.dirname(this.filePath);
+			if (!fs.existsSync(dir)) {
+				fs.mkdirSync(dir, { recursive: true });
+			}
+
+			if (fs.existsSync(this.filePath)) {
+				const content = fs.readFileSync(this.filePath, 'utf-8');
+				const raw = JSON.parse(content) as StoredSubmission[];
+				this.submissions = raw.map((s) => ({
+					...s,
+					submittedAt: new Date(s.submittedAt),
+					updatedAt: new Date(s.updatedAt)
+				}));
+			} else {
+				// Initialize with seed submissions
+				this.submissions = [...INITIAL_SEED_SUBMISSIONS];
+				this.saveToDisk();
+			}
+		} catch (err) {
+			console.error('Error loading submissions from file, falling back to seed:', err);
+			this.submissions = [...INITIAL_SEED_SUBMISSIONS];
+		} finally {
+			this.initialized = true;
+		}
+	}
+
+	private saveToDisk(): void {
+		try {
+			const dir = path.dirname(this.filePath);
+			if (!fs.existsSync(dir)) {
+				fs.mkdirSync(dir, { recursive: true });
+			}
+			const tempPath = `${this.filePath}.tmp.${Date.now()}`;
+			fs.writeFileSync(tempPath, JSON.stringify(this.submissions, null, 2), 'utf-8');
+			fs.renameSync(tempPath, this.filePath);
+		} catch (err) {
+			console.error('Failed to write submissions to disk:', err);
+		}
+	}
 
 	async addSubmission(data: SubmissionData): Promise<readonly [id: string, token: string]> {
-		console.log(`Adding submission ${JSON.stringify(data)}`);
-		console.log(data);
-
-		const submission: TestSubmission = {
+		this.ensureLoaded();
+		const now = new Date();
+		const submission: StoredSubmission = {
 			id: randomUUID(),
 			token: randomUUID(),
-			submittedAt: new Date(),
-			updatedAt: new Date(),
-			data: data,
+			submittedAt: now,
+			updatedAt: now,
+			data,
 			status: SubmissionStatus.PENDING
 		};
 
-		this.#submissions.push(submission);
+		this.submissions.unshift(submission);
+		this.saveToDisk();
 		return [submission.id, submission.token];
 	}
 
 	async editSubmission(id: string, token: string, data: SubmissionData): Promise<void> {
-		console.log(`Editing submission ${id}:${token} to ${data}`);
-
-		const idx = this.#submissions.findIndex((v) => v.id == id);
-		if (idx == -1) {
+		this.ensureLoaded();
+		const idx = this.submissions.findIndex((v) => v.id === id);
+		if (idx === -1) {
 			throw new InvalidSubmissionId();
 		}
 
-		const submission = this.#submissions[idx];
-		if (token != submission.token) {
+		const submission = this.submissions[idx];
+		if (token !== submission.token) {
 			throw new InvalidSubmissionToken();
 		}
 
-		this.#submissions[idx] = {
+		this.submissions[idx] = {
 			...submission,
-			data: data
+			updatedAt: new Date(),
+			data: {
+				...data,
+				user: {
+					...data.user,
+					passwordHash: submission.data.user.passwordHash || data.user.passwordHash
+				}
+			}
 		};
+		this.saveToDisk();
+	}
+
+	async updateSubmission(
+		id: string,
+		data: SubmissionData,
+		newStatus?: SubmissionStatus
+	): Promise<void> {
+		this.ensureLoaded();
+		const idx = this.submissions.findIndex((v) => v.id === id);
+		if (idx === -1) {
+			throw new InvalidSubmissionId();
+		}
+
+		const existing = this.submissions[idx];
+		this.submissions[idx] = {
+			...existing,
+			updatedAt: new Date(),
+			status: newStatus !== undefined ? newStatus : existing.status,
+			data: {
+				...data,
+				user: {
+					...data.user,
+					passwordHash: existing.data.user.passwordHash || data.user.passwordHash
+				}
+			}
+		};
+		this.saveToDisk();
+	}
+
+	async findSubmissionByUsername(username: string): Promise<StoredSubmission | null> {
+		this.ensureLoaded();
+		const cleanUser = username.trim().toLowerCase();
+		const found = this.submissions.find((s) => s.data.user.username?.toLowerCase() === cleanUser);
+		return found || null;
 	}
 
 	async getSubmissions(): Promise<readonly Submission[]> {
-		return this.#submissions;
+		this.ensureLoaded();
+		return this.submissions;
+	}
+
+	async getSubmission(id: string): Promise<Submission | null> {
+		this.ensureLoaded();
+		const found = this.submissions.find((s) => s.id === id);
+		return found || null;
+	}
+
+	async updateStatus(id: string, status: SubmissionStatus, moderatedBy?: string): Promise<void> {
+		this.ensureLoaded();
+		const idx = this.submissions.findIndex((s) => s.id === id);
+		if (idx === -1) {
+			throw new InvalidSubmissionId();
+		}
+		this.submissions[idx] = {
+			...this.submissions[idx],
+			status,
+			moderatedBy: moderatedBy || this.submissions[idx].moderatedBy,
+			updatedAt: new Date()
+		};
+		this.saveToDisk();
+	}
+
+	async deleteSubmission(id: string): Promise<Submission | null> {
+		this.ensureLoaded();
+		const idx = this.submissions.findIndex((s) => s.id === id);
+		if (idx === -1) {
+			return null;
+		}
+		const [deleted] = this.submissions.splice(idx, 1);
+		this.saveToDisk();
+		return deleted;
 	}
 }
 
-/** The active store */
+/** The active store singleton */
 let store: SubmissionStore | null = null;
 
 /**
  * Retrieves the active submission store, initializing it if needed.
- *
- * @returns The active store
+ * Automatically chooses PostgresSubmissionStore if PostgreSQL environment is present,
+ * or falls back to FileSubmissionStore for local development.
  */
 export function getStore(): SubmissionStore {
 	if (!store) {
-		// Initialize the store
-		store = new TestSubmissionStore();
+		const usePostgres = !!(env.DATABASE_URL || env.DATABASE_HOST);
+		if (usePostgres) {
+			try {
+				store = new PostgresSubmissionStore();
+			} catch (err) {
+				console.error(
+					'Failed to initialize PostgresSubmissionStore, falling back to FileSubmissionStore:',
+					err
+				);
+				store = new FileSubmissionStore();
+			}
+		} else {
+			store = new FileSubmissionStore();
+		}
 	}
-
 	return store;
 }
