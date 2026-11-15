@@ -9,7 +9,6 @@ import {
 } from '$lib/submissions';
 import { createFanToken, getFanSession, FAN_COOKIE_NAME } from '$lib/server/auth';
 import { randomUUID } from 'node:crypto';
-import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
 function mapSubmissionSummary(sub: StoredSubmission) {
@@ -127,23 +126,15 @@ export const PATCH: RequestHandler = async (event) => {
 		let status = existing.status;
 
 		if (newFoodImage && newFoodImage instanceof File && newFoodImage.size > 0) {
-			const uploadsDir = path.resolve(process.cwd(), 'static', 'uploads');
-			await fs.mkdir(uploadsDir, { recursive: true });
-
 			const ext = path.extname(newFoodImage.name).toLowerCase() || '.webp';
 			const newFileName = `food_${randomUUID()}${ext}`;
-			const newFilePath = path.join(uploadsDir, newFileName);
 			const buffer = Buffer.from(await newFoodImage.arrayBuffer());
-			await fs.writeFile(newFilePath, buffer);
+			await store.saveImage(newFileName, newFoodImage.type || 'image/webp', buffer);
 
 			// Clean up old uploaded photo if it is inside /uploads/
 			if (existing.data.photo.startsWith('/uploads/')) {
-				try {
-					const oldPath = path.join(process.cwd(), 'static', existing.data.photo);
-					await fs.unlink(oldPath);
-				} catch {
-					// Ignore unlink errors
-				}
+				const oldFileName = path.basename(existing.data.photo);
+				await store.deleteImage(oldFileName);
 			}
 
 			updatedPhoto = `/uploads/${newFileName}`;
@@ -198,22 +189,12 @@ export const DELETE: RequestHandler = async (event) => {
 	const deleted = await store.deleteSubmission(session.submissionId);
 
 	if (deleted) {
-		// Clean up files
+		// Clean up stored images
 		if (deleted.data.photo.startsWith('/uploads/')) {
-			try {
-				const foodPath = path.join(process.cwd(), 'static', deleted.data.photo);
-				await fs.unlink(foodPath);
-			} catch {
-				// Ignore
-			}
+			await store.deleteImage(path.basename(deleted.data.photo));
 		}
 		if (deleted.data.user.profilePic && deleted.data.user.profilePic.startsWith('/uploads/')) {
-			try {
-				const avatarPath = path.join(process.cwd(), 'static', deleted.data.user.profilePic);
-				await fs.unlink(avatarPath);
-			} catch {
-				// Ignore
-			}
+			await store.deleteImage(path.basename(deleted.data.user.profilePic));
 		}
 	}
 

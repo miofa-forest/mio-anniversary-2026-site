@@ -2,7 +2,6 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getStore, SubmissionStatus } from '$lib/submissions';
 import { isModeratorAuthenticated, getStaffSession } from '$lib/server/auth';
-import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
 /**
@@ -144,25 +143,19 @@ export const DELETE: RequestHandler = async (event) => {
 			return json({ success: false, error: 'Submission ID is required' }, { status: 400 });
 		}
 
-		const deleted = await getStore().deleteSubmission(id);
+		const store = getStore();
+		const deleted = await store.deleteSubmission(id);
 		if (!deleted) {
 			return json({ success: false, error: 'Submission not found' }, { status: 404 });
 		}
 
-		// Clean up files in static/uploads if they were custom uploads
-		const uploadsDir = path.resolve(process.cwd(), 'static', 'uploads');
+		// Clean up stored images if they were custom uploads
 		const filesToClean = [deleted.data.photo, deleted.data.user.profilePic].filter(
 			(p): p is string => Boolean(p && p.startsWith('/uploads/'))
 		);
 
 		for (const fileUrl of filesToClean) {
-			try {
-				const fileName = path.basename(fileUrl);
-				const diskPath = path.join(uploadsDir, fileName);
-				await fs.unlink(diskPath);
-			} catch {
-				// Ignore if file was already gone
-			}
+			await store.deleteImage(path.basename(fileUrl));
 		}
 
 		return json({

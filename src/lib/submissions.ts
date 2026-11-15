@@ -82,6 +82,11 @@ export class InvalidSubmissionToken extends Error {
 	}
 }
 
+export interface StoredImage {
+	mimeType: string;
+	data: Buffer;
+}
+
 /**
  * Storage interface for submissions.
  * Any future database (PostgreSQL, Supabase, SQLite, etc.) will implement this interface.
@@ -95,6 +100,9 @@ export interface SubmissionStore {
 	findSubmissionByUsername(username: string): Promise<StoredSubmission | null>;
 	updateStatus(id: string, status: SubmissionStatus, moderatedBy?: string): Promise<void>;
 	deleteSubmission(id: string): Promise<Submission | null>;
+	saveImage(filename: string, mimeType: string, data: Buffer): Promise<void>;
+	getImage(filename: string): Promise<StoredImage | null>;
+	deleteImage(filename: string): Promise<void>;
 }
 
 export interface StoredSubmission extends Submission {
@@ -456,6 +464,39 @@ export class FileSubmissionStore implements SubmissionStore {
 		const [deleted] = this.submissions.splice(idx, 1);
 		this.saveToDisk();
 		return deleted;
+	}
+
+	async saveImage(filename: string, _mimeType: string, data: Buffer): Promise<void> {
+		const uploadsDir = path.resolve(process.cwd(), 'static', 'uploads');
+		await fs.promises.mkdir(uploadsDir, { recursive: true });
+		await fs.promises.writeFile(path.join(uploadsDir, path.basename(filename)), data);
+	}
+
+	async getImage(filename: string): Promise<StoredImage | null> {
+		const safeName = path.basename(filename);
+		const filePath = path.resolve(process.cwd(), 'static', 'uploads', safeName);
+		try {
+			const data = await fs.promises.readFile(filePath);
+			const ext = path.extname(safeName).toLowerCase();
+			let mimeType = 'application/octet-stream';
+			if (ext === '.webp') mimeType = 'image/webp';
+			else if (ext === '.png') mimeType = 'image/png';
+			else if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
+			else if (ext === '.gif') mimeType = 'image/gif';
+			return { mimeType, data };
+		} catch {
+			return null;
+		}
+	}
+
+	async deleteImage(filename: string): Promise<void> {
+		const safeName = path.basename(filename);
+		const filePath = path.resolve(process.cwd(), 'static', 'uploads', safeName);
+		try {
+			await fs.promises.unlink(filePath);
+		} catch {
+			// Ignore if file already gone
+		}
 	}
 }
 

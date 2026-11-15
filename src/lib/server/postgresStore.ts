@@ -6,6 +6,7 @@ import {
 	InvalidSubmissionId,
 	InvalidSubmissionToken,
 	SubmissionStatus,
+	type StoredImage,
 	type StoredSubmission,
 	type Submission,
 	type SubmissionData,
@@ -88,6 +89,15 @@ export class PostgresSubmissionStore implements SubmissionStore {
 		`;
 		await this.sql`
 			CREATE INDEX IF NOT EXISTS idx_submissions_username ON submissions(username);
+		`;
+
+		await this.sql`
+			CREATE TABLE IF NOT EXISTS uploaded_images (
+				id VARCHAR(128) PRIMARY KEY,
+				mime_type VARCHAR(64) NOT NULL,
+				data BYTEA NOT NULL,
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
 		`;
 
 		await this.sql`
@@ -297,5 +307,35 @@ export class PostgresSubmissionStore implements SubmissionStore {
 			DELETE FROM submissions WHERE id = ${id} RETURNING *;
 		`;
 		return row ? this.mapRow(row) : null;
+	}
+
+	async saveImage(filename: string, mimeType: string, data: Buffer): Promise<void> {
+		await this.ensureInit();
+		await this.sql`
+			INSERT INTO uploaded_images (id, mime_type, data)
+			VALUES (${filename}, ${mimeType}, ${data})
+			ON CONFLICT (id) DO UPDATE SET
+				mime_type = EXCLUDED.mime_type,
+				data = EXCLUDED.data;
+		`;
+	}
+
+	async getImage(filename: string): Promise<StoredImage | null> {
+		await this.ensureInit();
+		const [row] = await this.sql<{ mime_type: string; data: Uint8Array }[]>`
+			SELECT mime_type, data FROM uploaded_images WHERE id = ${filename} LIMIT 1;
+		`;
+		if (!row) return null;
+		return {
+			mimeType: row.mime_type,
+			data: Buffer.from(row.data)
+		};
+	}
+
+	async deleteImage(filename: string): Promise<void> {
+		await this.ensureInit();
+		await this.sql`
+			DELETE FROM uploaded_images WHERE id = ${filename};
+		`;
 	}
 }

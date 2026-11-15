@@ -2,7 +2,6 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getStore, hashPassword, ContactType, SubmissionStatus } from '$lib/submissions';
 import { randomUUID } from 'node:crypto';
-import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
 // Helper to determine extension from file name or mime type
@@ -76,16 +75,13 @@ export const POST: RequestHandler = async ({ request }) => {
 			return json({ success: false, error: 'Food image is required' }, { status: 400 });
 		}
 
-		// Ensure static/uploads exists
-		const uploadsDir = path.resolve(process.cwd(), 'static', 'uploads');
-		await fs.mkdir(uploadsDir, { recursive: true });
+		const store = getStore();
 
 		// Save food image
 		const foodExt = getFileExtension(foodImageFile);
 		const foodFileName = `food_${randomUUID()}${foodExt}`;
-		const foodFilePath = path.join(uploadsDir, foodFileName);
 		const foodBuffer = Buffer.from(await foodImageFile.arrayBuffer());
-		await fs.writeFile(foodFilePath, foodBuffer);
+		await store.saveImage(foodFileName, foodImageFile.type || 'image/webp', foodBuffer);
 		const foodPhotoUrl = `/uploads/${foodFileName}`;
 
 		// Save avatar image if uploaded, otherwise use default
@@ -93,9 +89,8 @@ export const POST: RequestHandler = async ({ request }) => {
 		if (avatarFile && avatarFile instanceof File && avatarFile.size > 0) {
 			const avatarExt = getFileExtension(avatarFile);
 			const avatarFileName = `avatar_${randomUUID()}${avatarExt}`;
-			const avatarFilePath = path.join(uploadsDir, avatarFileName);
 			const avatarBuffer = Buffer.from(await avatarFile.arrayBuffer());
-			await fs.writeFile(avatarFilePath, avatarBuffer);
+			await store.saveImage(avatarFileName, avatarFile.type || 'image/webp', avatarBuffer);
 			profilePicUrl = `/uploads/${avatarFileName}`;
 		}
 
