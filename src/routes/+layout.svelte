@@ -15,7 +15,7 @@
 			? `${env.PUBLIC_CANONICAL_URL.replace(/\/$/, '')}${page.url.pathname}`
 			: page.url.href
 	);
-	let ogImageUrl = $derived(`${siteOrigin}/album%20assets/cover.png`);
+	let ogImageUrl = $derived(`${siteOrigin}/og-banner.png`);
 </script>
 
 <svelte:head>
@@ -40,6 +40,8 @@
 		content="Celebrate 8 years with our oshi, Ookami Mio! Browse travel photos, local spots, regional food, and heartfelt messages from fans worldwide."
 	/>
 	<meta property="og:image" content={ogImageUrl} />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
 	<meta name="theme-color" content="#c92a42" />
 
 	<!-- Twitter / X Cards -->

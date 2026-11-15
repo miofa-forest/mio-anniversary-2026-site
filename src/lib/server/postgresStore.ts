@@ -2,6 +2,7 @@ import postgres from 'postgres';
 import { env } from '$env/dynamic/private';
 import {
 	ContactType,
+	getSeedSubmissions,
 	InvalidSubmissionId,
 	InvalidSubmissionToken,
 	SubmissionStatus,
@@ -32,7 +33,7 @@ interface DbRow {
 
 export class PostgresSubmissionStore implements SubmissionStore {
 	private sql: postgres.Sql;
-	private initialized = false;
+	private initPromise: Promise<void> | null = null;
 
 	constructor(connectionString?: string) {
 		const conn = connectionString || env.DATABASE_URL;
@@ -52,8 +53,16 @@ export class PostgresSubmissionStore implements SubmissionStore {
 	}
 
 	private async ensureInit(): Promise<void> {
-		if (this.initialized) return;
+		if (!this.initPromise) {
+			this.initPromise = this.runInit().catch((err) => {
+				this.initPromise = null;
+				throw err;
+			});
+		}
+		return this.initPromise;
+	}
 
+	private async runInit(): Promise<void> {
 		await this.sql`
 			CREATE TABLE IF NOT EXISTS submissions (
 				id VARCHAR(64) PRIMARY KEY,
@@ -81,7 +90,41 @@ export class PostgresSubmissionStore implements SubmissionStore {
 			CREATE INDEX IF NOT EXISTS idx_submissions_username ON submissions(username);
 		`;
 
-		this.initialized = true;
+		await this.sql`
+			CREATE TABLE IF NOT EXISTS app_meta (
+				key VARCHAR(64) PRIMARY KEY,
+				value TEXT NOT NULL
+			);
+		`;
+
+		const existingMeta = await this.sql<{ value: string }[]>`
+			SELECT value FROM app_meta WHERE key = 'placeholders_v1_seeded'
+		`;
+
+		if (existingMeta.length === 0) {
+			const seeds = getSeedSubmissions();
+			for (const p of seeds) {
+				await this.sql`
+					INSERT INTO submissions (
+						id, token, submitted_at, updated_at, status, moderated_by,
+						display_name, profile_pic, country, username, password_hash,
+						contact_type, contact_info, message, photo
+					) VALUES (
+						${p.id}, ${p.token}, ${p.submittedAt}, ${p.updatedAt}, ${p.status}, ${p.moderatedBy || null},
+						${p.data.user.name || null}, ${p.data.user.profilePic || null}, ${p.data.user.country || ''},
+						${p.data.user.username || null}, ${p.data.user.passwordHash || null},
+						${p.data.user.contact?.type || 'OTHER'}, ${p.data.user.contact?.info || ''},
+						${p.data.message}, ${p.data.photo}
+					)
+					ON CONFLICT (id) DO NOTHING
+				`;
+			}
+			await this.sql`
+				INSERT INTO app_meta (key, value)
+				VALUES ('placeholders_v1_seeded', 'true')
+				ON CONFLICT (key) DO NOTHING
+			`;
+		}
 	}
 
 	private mapRow(row: DbRow): StoredSubmission {

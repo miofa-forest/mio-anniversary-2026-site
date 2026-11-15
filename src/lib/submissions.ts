@@ -269,6 +269,25 @@ const INITIAL_SEED_SUBMISSIONS: StoredSubmission[] = [
 ];
 
 /**
+ * Returns fresh copies of the 8 placeholder submissions with the default
+ * password ("Placeholder") hashed so each account can be logged into and edited.
+ */
+export function getSeedSubmissions(): StoredSubmission[] {
+	const defaultPasswordHash = hashPassword('Placeholder');
+	return INITIAL_SEED_SUBMISSIONS.map((sub) => ({
+		...sub,
+		moderatedBy: 'system-seed',
+		data: {
+			...sub.data,
+			user: {
+				...sub.data.user,
+				passwordHash: defaultPasswordHash
+			}
+		}
+	}));
+}
+
+/**
  * File-backed submission store that persists to JSON on disk.
  * Easily swappable to PostgreSQL or any database later.
  */
@@ -300,12 +319,12 @@ export class FileSubmissionStore implements SubmissionStore {
 				}));
 			} else {
 				// Initialize with seed submissions
-				this.submissions = [...INITIAL_SEED_SUBMISSIONS];
+				this.submissions = getSeedSubmissions();
 				this.saveToDisk();
 			}
 		} catch (err) {
 			console.error('Error loading submissions from file, falling back to seed:', err);
-			this.submissions = [...INITIAL_SEED_SUBMISSIONS];
+			this.submissions = getSeedSubmissions();
 		} finally {
 			this.initialized = true;
 		}
