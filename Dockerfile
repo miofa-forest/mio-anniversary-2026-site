@@ -14,8 +14,8 @@ RUN npm run check
 RUN npm run build
 
 RUN mkdir ./sbom
-RUN npm install --global @cyclonedx/cyclonedx-npm
-RUN cyclonedx-npm --output-format JSON --output-file "./sbom/app.cdx.json" --validate --mc-type application 
+RUN npm install --global @cyclonedx/cyclonedx-npm@^6.0.1
+RUN cyclonedx-npm --output-format JSON --output-file "./sbom/app.cdx.json" --validate --mc-type application
 
 FROM node:26.8-trixie AS release
 
